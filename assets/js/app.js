@@ -137,6 +137,8 @@ function viewHome(){
 
   return `<section class="hero on-dark"><div class="wrap"><div class="hero-in">
       <div>
+        <img class="hero-logo" src="${assetUrl('assets/img/logo.png')}" alt="${esc(SITE.name)}"
+             width="300" height="61">
         <div class="tag-pill">${icon('bolt')}<span>${esc(SITE.tagline)}</span></div>
         <h1>${esc(SITE.shortName)} <span class="hl">للكهربائيات والانارة الحديثة</span></h1>
         <p class="lead">${esc(SITE.about)}</p>
@@ -229,8 +231,11 @@ function viewCategories(){
           </div>
           <a class="btn btn-sm btn-outline" href="#/c/${c.id}">عرض القسم</a>
         </div>
-        <div class="cat-subs">
-          ${c.subs.map(sb => `<a href="#/c/${c.id}/${sb.id}">${esc(sb.name)}</a>`).join('')}
+        <div class="subgrid cat-subgrid">
+          ${c.subs.map(sb => `<a class="scard" href="#/c/${c.id}/${sb.id}">
+            ${art(sb.icon)}
+            <div><b>${esc(sb.name)}</b><small>${countIn(c.id + '/' + sb.id)} منتج</small></div>
+          </a>`).join('')}
         </div>
       </div>`).join('')}
     </div>
