@@ -12,6 +12,7 @@ let SITE = {
   tagline: 'ضوء يصنع الفرق',
   about: 'الوزني لتجارة الكهربائيات والإنارة الحديثة — وجهتك الأولى في كربلاء لكل ما يخص الكهربائيات. نوفّر تشكيلة واسعة من أنظمة الإنارة الحديثة، الكيبلات والأسلاك بأنواعها، البوردات وأجهزة السيطرة ATS، العدد اليدوية ومواد التأسيس، وأجهزة الحماية والتحويل — بأسعار منافسة ومنتجات أصلية وضمان حقيقي.',
   currency: 'د.ع',
+  siteUrl: '',
   phones: [
     { label: 'المبيعات والاستفسار', number: '07734625041', intl: '9647734625041' }
   ],
@@ -31,14 +32,14 @@ let SITE = {
   ],
   // نظام الطلبات (Firebase) — راجع FIREBASE.md
   firebase: {
-    apiKey: 'AIzaSyDqFz1OuCwRUYOIoEzAqfiGX479BWuPZTs',
-    projectId: 'alwazani-store',
-    adminEmail: 'alwazny.electrics@gmail.com'
+    apiKey: '',
+    projectId: '',
+    adminEmail: ''
   },
   // إعدادات لوحة التحكم (admin.html) — غيّر كلمة السر من داخل اللوحة نفسها
   admin: {
-    hash: '649aeff5dfcf940c4a0e190f008a91efb48833aa3617e03a94cbee74bbe9d616',
-    repo: 'ZainAswad/admission-guide',
+    hash: 'e5fcd84f8e29f34bcb5631a040d9719d9a9ccada684c4534681b0c2d34df06ea',
+    repo: 'ZainAswad/SpotLight-Store',
     branch: 'main'
   },
   orders: {
@@ -148,8 +149,4 @@ let BRANDS = [
 ];
 
 /* ---------- 4) المنتجات ---------- */
-let PRODUCTS = [
-  { id: 'LT-101', name: 'مصباح ثريا 5W', brand: 'AkkoStar', price: 1500, icon: 'bulb', image: 'assets/img/products/LT-101.jpg',
-    cats: ['lighting/bulbs'], desc: 'مصباح ثريا 5 واط متغير (ابيض - شمسي - اوف وايت)',
-    specs: ['12 واط', 'نوع الانارة : شمسي - ابيض - اوف وايت'] }
-];
+let PRODUCTS = [];
