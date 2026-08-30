@@ -126,9 +126,16 @@ function viewHome(){
   const hot  = PRODUCTS.filter(p => p.badge === 'hot').slice(0, 10);
   const sale = PRODUCTS.filter(p => p.old).slice(0, 10);
   const fresh= PRODUCTS.filter(p => p.badge === 'new').slice(0, 10);
+  const subCount = CATEGORIES.reduce((a, c) => a + c.subs.length, 0);
+  /* إحصاءات الهيرو — نعرض ما له قيمة فعلية فقط */
+  const stats = [
+    [PRODUCTS.length, 'منتج متوفر'],
+    [subCount,        'قسم فرعي'],
+    [BRANDS.length,   'علامة تجارية']
+  ].filter(([n]) => n > 0);
+
   return `<section class="hero"><div class="wrap"><div class="hero-in">
       <div>
-        <img class="hero-logo" src="${assetUrl('assets/img/logo.png')}" alt="${esc(SITE.name)}" width="96" height="90">
         <div class="tag-pill">${icon('bolt')}<span>${esc(SITE.tagline)}</span></div>
         <h1>${esc(SITE.shortName)} <span class="hl">للكهربائيات والانارة الحديثة</span></h1>
         <p class="lead">${esc(SITE.about)}</p>
@@ -136,13 +143,11 @@ function viewHome(){
           <a class="btn btn-lg" href="#/categories">${icon('grid')}<span>تصفّح الأقسام</span></a>
           <a class="btn btn-lg btn-outline" href="#/contact">${icon('location')}<span>موقع المحل</span></a>
         </div>
-        <div class="hero-stats">
-          <div><b>${PRODUCTS.length}+</b><span>منتج متوفر</span></div>
-          <div><b>${CATEGORIES.reduce((a, c) => a + c.subs.length, 0)}</b><span>قسم فرعي</span></div>
-          <div><b>${BRANDS.length}+</b><span>علامة تجارية</span></div>
-        </div>
+        ${stats.length ? `<div class="hero-stats">
+          ${stats.map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('')}
+        </div>` : ''}
       </div>
-      <div class="bento" id="bento"></div>
+      <div class="hero-vis">${art('chandelier')}</div>
     </div></div></section>
 
     <section class="sec-sm"><div class="wrap"><div class="perks">
@@ -153,9 +158,9 @@ function viewHome(){
       <div class="sec-head"><div>
         <span class="eyebrow">${icon('grid')}أقسامنا</span>
         <h2>كل ما تحتاجه الكهربائيات تحت سقف واحد</h2>
-        <p>خمسة أقسام رئيسية تتفرّع إلى ${CATEGORIES.reduce((a, c) => a + c.subs.length, 0)} قسماً فرعياً — اختر ما يناسب مشروعك.</p>
-      </div><a class="btn btn-tonal" href="#/categories">عرض الكل</a></div>
-      <div class="grid-c">${CATEGORIES.map(catCard).join('')}</div>
+        <p>خمسة أقسام رئيسية تتفرّع إلى ${subCount} قسماً فرعياً — اختر ما يناسب مشروعك.</p>
+      </div><a class="btn btn-outline btn-sm" href="#/categories">عرض الكل</a></div>
+      <div class="cat-rail">${CATEGORIES.map(catSlide).join('')}</div>
     </div></section>
 
     ${hot.length ? shelf('الأكثر طلباً', 'المنتجات التي يثق بها زبائننا أكثر من غيرها', 'bolt', hot) : ''}
@@ -177,13 +182,14 @@ function viewHome(){
     ${fresh.length ? shelf('وصل حديثاً', 'أحدث ما أضفناه إلى رفوف المحل', 'box', fresh) : ''}
 
     <section class="sec-sm"><div class="wrap">
-      <div class="panel" style="padding:34px;text-align:center;background:linear-gradient(140deg,var(--brand-50),#fff)">
-        <span class="eyebrow">${icon('headset')}نحن بخدمتك</span>
-        <h2 style="font-size:clamp(20px,3vw,28px);margin-bottom:10px">تحتاج مساعدة في اختيار المادة المناسبة؟</h2>
-        <p style="color:var(--grey);max-width:56ch;margin:0 auto 22px">فريقنا يساعدك في حساب المقاسات والأحمال واختيار الأنسب لمشروعك — تواصل معنا مباشرة.</p>
-        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-          <a class="btn btn-lg wa" href="${waLink('السلام عليكم، أحتاج استشارة بخصوص مواد كهربائية.')}" target="_blank" rel="noopener">${icon('whatsapp')}<span>محادثة واتساب</span></a>
-          <a class="btn btn-lg btn-outline" href="tel:${SITE.phones[0].number}">${icon('phone')}<span dir="ltr">${fmtPhone(SITE.phones[0].number)}</span></a>
+      <div class="cta-band rv">
+        <div>
+          <h2>تحتاج مساعدة في اختيار المادة المناسبة؟</h2>
+          <p>فريقنا يساعدك في حساب المقاسات والأحمال واختيار الأنسب لمشروعك — تواصل معنا مباشرة.</p>
+        </div>
+        <div class="cta-act">
+          <a class="btn wa" href="${waLink('السلام عليكم، أحتاج استشارة بخصوص مواد كهربائية.')}" target="_blank" rel="noopener">${icon('whatsapp')}<span>محادثة واتساب</span></a>
+          <a class="btn btn-outline" href="tel:${SITE.phones[0].number}">${icon('phone')}<span dir="ltr">${fmtPhone(SITE.phones[0].number)}</span></a>
         </div>
       </div>
     </div></section>`;
@@ -194,13 +200,11 @@ function shelf(title, sub, ic, items){
     <div class="grid-p">${items.map(card).join('')}</div>
   </div></section>`;
 }
-function catCard(c){
-  return `<a class="ccard rv" href="#/c/${c.id}">
+function catSlide(c){
+  return `<a class="cat-slide rv" href="#/c/${c.id}">
     ${art(c.icon)}
     <h3>${esc(c.name)}</h3>
     <p>${esc(c.blurb)}</p>
-    <div class="subs">${c.subs.slice(0, 4).map(s => `<span>${esc(s.name)}</span>`).join('')}
-      ${c.subs.length > 4 ? `<span>+${c.subs.length - 4}</span>` : ''}</div>
     <span class="go">${countIn(c.id)} منتج ${icon('chevron')}</span>
   </a>`;
 }
@@ -214,15 +218,21 @@ function viewCategories(){
       <h2>أقسام المتجر</h2>
       <p>الأقسام متداخلة عن قصد — المادة الواحدة قد تظهر في أكثر من قسم لأنها تخدم أكثر من استخدام.</p>
     </div></div>
-    ${CATEGORIES.map(c => `<div style="margin-bottom:38px">
-      <div class="sec-head" style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:14px">
-        <span style="width:56px;height:56px;display:grid;place-items:center;background:#fff;border-radius:var(--r);box-shadow:var(--e1)">${art(c.icon)}</span>
-        <div><h3 style="font-size:20px"><a href="#/c/${c.id}">${esc(c.name)}</a></h3>
-        <p style="color:var(--grey);font-size:13.5px">${esc(c.blurb)} · ${countIn(c.id)} منتج</p></div>
-      </div><a class="btn btn-sm btn-tonal" href="#/c/${c.id}">عرض القسم</a></div>
-      <div class="subgrid">${c.subs.map(s => `<a class="scard rv" href="#/c/${c.id}/${s.id}">
-        ${art(s.icon)}<div><b>${esc(s.name)}</b><small>${countIn(c.id + '/' + s.id)} منتج</small></div></a>`).join('')}</div>
-    </div>`).join('')}
+    <div class="cat-list">
+      ${CATEGORIES.map(c => `<div class="cat-item rv">
+        <div class="cat-item-h">
+          ${art(c.icon)}
+          <div class="tx">
+            <h3><a href="#/c/${c.id}">${esc(c.name)}</a></h3>
+            <div class="meta">${esc(c.blurb)} · ${countIn(c.id)} منتج</div>
+          </div>
+          <a class="btn btn-sm btn-outline" href="#/c/${c.id}">عرض القسم</a>
+        </div>
+        <div class="cat-subs">
+          ${c.subs.map(sb => `<a href="#/c/${c.id}/${sb.id}">${esc(sb.name)}</a>`).join('')}
+        </div>
+      </div>`).join('')}
+    </div>
   </div>`;
 }
 
@@ -565,11 +575,8 @@ function parseHash(){
   const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
   return h.split('/').filter(Boolean);
 }
-let bentoTimer = null;
-
 function render(){
   const s = parseHash();
-  if(bentoTimer){ clearInterval(bentoTimer); bentoTimer = null; }
   let html, title = SITE.name;
   switch(s[0]){
     case undefined: html = viewHome(); title = `${SITE.name} — ${SITE.tagline}`; break;
@@ -600,7 +607,6 @@ function afterRender(s){
   reveal();
   markNav(s[0]);
   $$('.field select').forEach(x => x.classList.add('filled'));
-  if(!s[0]) initBento();
   if(s[0] === 'checkout') initCheckout();
   if(s[0] === 'order') refreshOrderStatus(s[1]);
   if(s[0] === 'orders') refreshMyOrders();
@@ -619,59 +625,8 @@ function reveal(){
   if(io) io.disconnect();
   io = new IntersectionObserver(es => es.forEach(e => {
     if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
-  }), { rootMargin:'0px 0px -40px 0px', threshold:.06 });
-  $$('.rv').forEach((el, i) => { el.style.transitionDelay = Math.min(i % 8 * 45, 320) + 'ms'; io.observe(el); });
-}
-
-/* ================= بنتو جريد متغيّر ================= */
-const TINTS = [['#EAF9F9','#FFFFFF'],['#FFFFFF','#EFF4F5'],['#E4F6F6','#F7FCFC'],['#F2F7F8','#FFFFFF']];
-function bentoPools(){
-  const seen = new Set(), prods = [];
-  [...PRODUCTS.filter(p => p.imgData || p.image), ...PRODUCTS.filter(p => p.badge === 'hot'),
-   ...PRODUCTS.filter(p => p.badge === 'new'), ...PRODUCTS.filter(p => p.old)]
-    .forEach(p => { if(!seen.has(p.id)){ seen.add(p.id); prods.push(p); } });
-  const cats = [];
-  CATEGORIES.forEach(c => { cats.push({ cat:c }); c.subs.slice(0, 3).forEach(sb => cats.push({ cat:c, sub:sb })); });
-  return { prods, cats };
-}
-function tileHTML(item, i){
-  const [a, b] = TINTS[i % TINTS.length];
-  if(item.cat){
-    const { cat, sub } = item;
-    const href = sub ? `#/c/${cat.id}/${sub.id}` : `#/c/${cat.id}`;
-    return `<a class="bt-in bt-fade" href="${href}">
-      <span class="bt-bg" style="background:linear-gradient(160deg,${a},${b})"></span>
-      ${art(sub ? sub.icon : cat.icon)}
-      <span class="bt-lbl"><b>${esc(sub ? sub.name : cat.name)}</b><small>${sub ? esc(cat.name) : countIn(cat.id) + ' منتج'}</small></span></a>`;
-  }
-  const p = item;
-  return `<a class="bt-in bt-fade" href="#/p/${p.id}">
-    <span class="bt-bg" style="background:linear-gradient(160deg,${a},${b})"></span>
-    ${(p.imgData || p.image) ? media(p, 'bt-img') : art(p.icon)}
-    <span class="bt-lbl"><b>${esc(p.name)}</b><small>${money(p.price)} ${SITE.currency}</small></span></a>`;
-}
-function initBento(){
-  const box = document.getElementById('bento'); if(!box) return;
-  const { prods, cats } = bentoPools();
-  /* البلاطات المخصّصة للمنتجات تتحوّل إلى أقسام إذا كانت المواد أقل من عددها،
-     حتى لا تتكرر المادة نفسها في أكثر من بلاطة. */
-  const slots = ['bt1','bt2','bt3','bt4','bt5','bt6','bt7','bt8'];
-  const wantsProduct = [true, false, true, true, false, true, false, true];
-  const maxProdTiles = Math.min(wantsProduct.filter(Boolean).length, prods.length);
-  let pi = 0, ci = 0;
-  const plan = slots.map((cls, n) => wantsProduct[n] && pi < maxProdTiles
-    ? { cls, pool:prods, i:pi++ }
-    : { cls, pool:cats, i:ci++ });
-  box.innerHTML = plan.map((t, n) => `<div class="bt ${t.cls}">${tileHTML(t.pool[t.i % t.pool.length], n)}</div>`).join('');
-  let k = 0;
-  bentoTimer = setInterval(() => {
-    if(document.hidden) return;
-    const n = k++ % plan.length, t = plan[n];
-    if(t.pool.length < 2) return;          // لا تدوير لمجموعة من عنصر واحد
-    t.i += plan.length;
-    const cell = box.children[n]; if(!cell) return;
-    cell.innerHTML = tileHTML(t.pool[t.i % t.pool.length], n + k);
-  }, 2400);
+  }), { rootMargin:'0px 0px -60px 0px', threshold:.05 });
+  $$('.rv').forEach((el, i) => { el.style.transitionDelay = Math.min(i % 6 * 30, 150) + 'ms'; io.observe(el); });
 }
 
 /* ================= نافذة العرض السريع ================= */
@@ -827,20 +782,7 @@ async function refreshMyOrders(){
 }
 
 /* ================= الأحداث العامة ================= */
-function ripple(e, el){
-  const r = el.getBoundingClientRect(), d = Math.max(r.width, r.height);
-  const s = document.createElement('span');
-  s.className = 'rp';
-  s.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
-  el.appendChild(s); setTimeout(() => s.remove(), 560);
-}
-
 function bindGlobal(){
-  document.addEventListener('pointerdown', e => {
-    const b = e.target.closest('.btn,.ibtn,.chip');
-    if(b && !b.classList.contains('no-rp')) ripple(e, b);
-  });
-
   document.addEventListener('click', e => {
     const t = e.target;
 
