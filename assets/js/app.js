@@ -36,7 +36,8 @@ function media(p, cls){
   const src = p.imgData || assetUrl(p.image);   // imgData تُستخدم فقط أثناء المعاينة من لوحة التحكم
   return src
     ? `<img${cls ? ` class="${cls}"` : ''} src="${src}" alt="${esc(p.name)}" loading="lazy" decoding="async"
-        data-fb="${esc(p.icon || 'junction')}"${p.image ? ` data-orig="${esc(p.image)}"` : ''} onerror="imgFallback(this)">`
+        data-fb="${esc(p.icon || 'junction')}"${p.image ? ` data-orig="${esc(p.image)}"` : ''}
+        onload="this.classList.add('ok')" onerror="imgFallback(this)">`
     : art(p.icon);
 }
 function subLabel(p){
@@ -134,7 +135,7 @@ function viewHome(){
     [BRANDS.length,   'علامة تجارية']
   ].filter(([n]) => n > 0);
 
-  return `<section class="hero"><div class="wrap"><div class="hero-in">
+  return `<section class="hero on-dark"><div class="wrap"><div class="hero-in">
       <div>
         <div class="tag-pill">${icon('bolt')}<span>${esc(SITE.tagline)}</span></div>
         <h1>${esc(SITE.shortName)} <span class="hl">للكهربائيات والانارة الحديثة</span></h1>
@@ -154,7 +155,7 @@ function viewHome(){
       ${PERKS.map(p => `<div class="perk rv"><span class="pic">${icon(p.ic)}</span><div><b>${p.t}</b><small>${p.s}</small></div></div>`).join('')}
     </div></div></section>
 
-    <section class="sec"><div class="wrap">
+    <section class="sec band-tint"><div class="wrap">
       <div class="sec-head"><div>
         <span class="eyebrow">${icon('grid')}أقسامنا</span>
         <h2>كل ما تحتاجه الكهربائيات تحت سقف واحد</h2>
@@ -181,7 +182,7 @@ function viewHome(){
 
     ${fresh.length ? shelf('وصل حديثاً', 'أحدث ما أضفناه إلى رفوف المحل', 'box', fresh) : ''}
 
-    <section class="sec-sm"><div class="wrap">
+    <section class="sec band-dark on-dark"><div class="wrap">
       <div class="cta-band rv">
         <div>
           <h2>تحتاج مساعدة في اختيار المادة المناسبة؟</h2>
@@ -625,8 +626,10 @@ function reveal(){
   if(io) io.disconnect();
   io = new IntersectionObserver(es => es.forEach(e => {
     if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
-  }), { rootMargin:'0px 0px -60px 0px', threshold:.05 });
-  $$('.rv').forEach((el, i) => { el.style.transitionDelay = Math.min(i % 6 * 30, 150) + 'ms'; io.observe(el); });
+  }), { rootMargin:'0px 0px -70px 0px', threshold:.05 });
+  $$('.rv').forEach((el, i) => { el.style.transitionDelay = Math.min(i % 6 * 60, 300) + 'ms'; io.observe(el); });
+  /* الخط الأحمر يُرسم تحت عنوان القسم عند دخوله الشاشة */
+  $$('.sec-head h2').forEach(h => { h.classList.add('uline'); io.observe(h); });
 }
 
 /* ================= نافذة العرض السريع ================= */
