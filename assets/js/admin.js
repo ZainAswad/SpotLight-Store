@@ -213,6 +213,18 @@ function serializeData(d){
   L.push(S.hours.map(h => `    { d: ${q(h.d)}, t: ${q(h.t)} }`).join(',\n'));
   L.push('  ],');
   L.push(`  geo: { lat: ${S.geo.lat}, lng: ${S.geo.lng}, zoom: ${S.geo.zoom || 15} },`);
+  const BR = (S.branches || []).filter(b => b && b.name);
+  L.push('  // الفروع — الموقع يعمل بفرع واحد أو بلا فروع');
+  L.push('  branches: [' + (BR.length ? '' : '],'));
+  if(BR.length){
+    L.push(BR.map(b => {
+      const g = b.geo || {};
+      return `    { name: ${q(b.name)}, address: ${q(b.address || '')},\n`
+           + `      geo: { lat: ${+g.lat || 0}, lng: ${+g.lng || 0}, zoom: ${+g.zoom || 15} },\n`
+           + `      phone: ${q(b.phone || '')}, hours: ${q(b.hours || '')} }`;
+    }).join(',\n'));
+    L.push('  ],');
+  }
   L.push('  social: [');
   L.push(S.social.map(s => `    { id: ${q(s.id)}, name: ${q(s.name)}, url: ${q(s.url || '')} }`).join(',\n'));
   L.push('  ],');
@@ -777,6 +789,12 @@ function renderSettings(){
         <div class="field"><input id="sLng" placeholder=" " value="${S.geo.lng}" dir="ltr"><label>خط الطول (lng)</label></div>
       </div>
 
+      <h3 style="font-size:16px;margin-top:10px">الفروع
+        <small style="color:var(--grey);font-weight:600">— يعمل المتجر بفرع واحد أو أكثر</small></h3>
+      <div class="note note-info">${icon('location')}<span>لكل فرع خريطته ودبوسه في صفحة التواصل، ويظهر خياراً عند «استلام من المحل».</span></div>
+      <div id="branchList"></div>
+      <button class="btn btn-sm btn-tonal" type="button" id="brAdd">${icon('plus')}<span>إضافة فرع</span></button>
+
       <h3 style="font-size:16px;margin-top:10px">التواصل الاجتماعي <small style="color:var(--grey);font-weight:600">— اتركه فارغاً ليختفي</small></h3>
       ${S.social.map((x, i) => `<div class="field"><input id="soc${i}" placeholder=" " value="${esc(x.url || '')}" dir="ltr"><label>${esc(x.name)}</label></div>`).join('')}
 
@@ -825,6 +843,71 @@ function renderSettings(){
   $('#phoneList').onclick = e => { const b = e.target.closest('[data-phd]');
     if(b && S.phones.length > 1){ S.phones.splice(+b.dataset.phd, 1); drawPhones(); } };
 
+  /* --- الفروع --- */
+  S.branches = Array.isArray(S.branches) ? S.branches : [];
+  const drawBranches = () => {
+    $('#branchList').innerHTML = S.branches.map((b, i) => {
+      const g = b.geo || {};
+      return `<div class="brbox" data-bri="${i}">
+        <div class="brbox-h">
+          <b>${esc(b.name || 'فرع بلا اسم')}</b>
+          <button class="ibtn del" type="button" data-brd="${i}" title="حذف الفرع"
+                  style="width:32px;height:32px;margin-inline-start:auto">${icon('trash')}</button>
+        </div>
+        <div class="f2">
+          <div class="field"><input data-brf="name" placeholder=" " value="${esc(b.name || '')}"><label>اسم الفرع</label></div>
+          <div class="field"><input data-brf="phone" placeholder=" " value="${esc(b.phone || '')}" dir="ltr"><label>هاتف الفرع</label></div>
+        </div>
+        <div class="field"><input data-brf="address" placeholder=" " value="${esc(b.address || '')}"><label>عنوان الفرع</label></div>
+        <div class="field"><input data-brf="hours" placeholder=" " value="${esc(b.hours || '')}"><label>أوقات دوام الفرع</label></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <input type="text" data-brmap placeholder="الصق رابط خرائط كوكل لهذا الفرع…" dir="ltr"
+                 style="flex:1;min-width:190px;padding:11px 13px;border-radius:var(--r-sm);border:1.5px solid var(--line);background:#fff">
+          <button class="btn btn-sm btn-tonal" type="button" data-brgo="${i}">${icon('check')}<span>استخراج</span></button>
+        </div>
+        <div class="f2">
+          <div class="field"><input data-brf="lat" placeholder=" " value="${g.lat != null ? g.lat : ''}" dir="ltr"><label>خط العرض (lat)</label></div>
+          <div class="field"><input data-brf="lng" placeholder=" " value="${g.lng != null ? g.lng : ''}" dir="ltr"><label>خط الطول (lng)</label></div>
+        </div>
+      </div>`;
+    }).join('') || '<p style="color:var(--grey);font-size:13.5px">لا فروع — سيعتمد الموقع على العنوان والخريطة أعلاه.</p>';
+  };
+  /* يقرأ ما في الحقول قبل أي إعادة رسم حتى لا يضيع ما كتبه المستخدم */
+  const readBranches = () => {
+    $$('#branchList .brbox').forEach(box => {
+      const b = S.branches[+box.dataset.bri]; if(!b) return;
+      const v = k => { const el = box.querySelector(`[data-brf="${k}"]`); return el ? el.value.trim() : ''; };
+      b.name = v('name'); b.address = v('address'); b.hours = v('hours');
+      b.phone = v('phone').replace(/\D/g, '');
+      b.geo = b.geo || {};
+      b.geo.lat = parseFloat(v('lat')) || 0;
+      b.geo.lng = parseFloat(v('lng')) || 0;
+      b.geo.zoom = +b.geo.zoom || 15;
+    });
+  };
+  drawBranches();
+  $('#brAdd').onclick = () => {
+    readBranches();
+    S.branches.push({ name:'فرع جديد', address:'', geo:{ lat:S.geo.lat, lng:S.geo.lng, zoom:15 }, phone:'', hours:'' });
+    drawBranches();
+  };
+  $('#branchList').onclick = async e => {
+    const del = e.target.closest('[data-brd]');
+    if(del){ readBranches(); S.branches.splice(+del.dataset.brd, 1); drawBranches(); return; }
+    const go = e.target.closest('[data-brgo]');
+    if(go){
+      const box = go.closest('.brbox');
+      const u = box.querySelector('[data-brmap]').value.trim();
+      if(!u) return;
+      const c = await coordsFromMapUrl(u);
+      if(c){
+        box.querySelector('[data-brf="lat"]').value = c.lat;
+        box.querySelector('[data-brf="lng"]').value = c.lng;
+        toast('استُخرجت إحداثيات الفرع', 'ok');
+      } else toast('لم نتمكن من قراءة الرابط — انسخ الإحداثيات يدوياً من كوكل', 'err');
+    }
+  };
+
   $('#mapGo').onclick = async () => {
     const u = $('#mapUrl').value.trim(); if(!u) return;
     const c = await coordsFromMapUrl(u);
@@ -852,6 +935,8 @@ function renderSettings(){
     S.phones = S.phones.filter(p => p.number);
     S.geo.lat = parseFloat($('#sLat').value) || S.geo.lat;
     S.geo.lng = parseFloat($('#sLng').value) || S.geo.lng;
+    readBranches();
+    S.branches = S.branches.filter(b => b.name || b.address);
     S.social.forEach((x, i) => { const el = $('#soc' + i); if(el) x.url = el.value.trim(); });
     S.hours.forEach((h, i) => { h.d = $('#hd' + i).value.trim(); h.t = $('#ht' + i).value.trim(); });
     S.orders.deliveryFeeInCity  = +String($('#oIn').value).replace(/\D/g, '') || 0;
@@ -1533,7 +1618,8 @@ function orderCard(o){
       <div class="ordrow">${icon('user')}<span>${esc(o.customer?.name || '')}</span></div>
       <div class="ordrow">${icon('phone')}<a href="tel:${esc(o.customer?.phone || '')}" dir="ltr">${esc(fmtPhone(o.customer?.phone || ''))}</a></div>
       <div class="ordrow">${icon('location')}<span>${esc([o.customer?.gov, o.customer?.area, o.customer?.address].filter(Boolean).join(' — ') || '—')}</span></div>
-      <div class="ordrow">${icon('box')}<span>${(o.items || []).length} مادة · ${o.method === 'pickup' ? 'استلام من المحل' : 'توصيل'}</span></div>
+      <div class="ordrow">${icon('box')}<span>${(o.items || []).length} مادة · ${o.method === 'pickup'
+        ? 'استلام من المحل' + (o.branch ? ' — ' + esc(o.branch) : '') : 'توصيل'}</span></div>
       ${o.customer?.note ? `<div class="ordrow">${icon('headset')}<span>${esc(o.customer.note)}</span></div>` : ''}
       ${o.adminNote ? `<div class="ordnote">${icon('headset')}<span>${esc(o.adminNote)}</span></div>` : ''}
     </div>
@@ -1613,6 +1699,7 @@ function orderSheet(id){
         <div class="sum"><span>الهاتف</span><b dir="ltr">${esc(fmtPhone(o.customer?.phone || ''))}</b></div>
         <div class="sum"><span>العنوان</span><b style="text-align:end;max-width:60%">${esc([o.customer?.gov, o.customer?.area, o.customer?.address].filter(Boolean).join(' — ') || '—')}</b></div>
         <div class="sum"><span>الاستلام</span><b>${o.method === 'pickup' ? 'استلام من المحل' : 'توصيل'}</b></div>
+        ${o.method === 'pickup' && o.branch ? `<div class="sum"><span>فرع الاستلام</span><b>${esc(o.branch)}</b></div>` : ''}
         <div class="sum"><span>الدفع</span><b>${o.payment === 'transfer' ? 'تحويل / اتفاق مسبق' : 'عند الاستلام'}</b></div>
         ${o.customer?.note ? `<div class="sum"><span>ملاحظات الزبون</span><b style="text-align:end;max-width:60%">${esc(o.customer.note)}</b></div>` : ''}
       </div></div>

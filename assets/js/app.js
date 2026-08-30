@@ -5,6 +5,23 @@ const $    = (s, r = document) => r.querySelector(s);
 const $$   = (s, r = document) => [...r.querySelectorAll(s)];
 const esc  = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
+/* ---------- الفروع ----------
+   الموقع يعمل سليماً بفرعين أو بفرع واحد أو بلا فروع إطلاقاً:
+   عند غياب branches نرجع إلى SITE.address و SITE.geo كما كان. */
+function branches(){
+  const b = (typeof SITE !== 'undefined' && Array.isArray(SITE.branches)) ? SITE.branches : [];
+  return b.filter(x => x && (x.name || x.address));
+}
+function branchGeo(b){
+  const g = b && b.geo;
+  return (g && +g.lat && +g.lng) ? g : SITE.geo;
+}
+function mapEmbed(g){
+  const bbox = [g.lng - .012, g.lat - .008, g.lng + .012, g.lat + .008].join(',');
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${g.lat},${g.lng}`;
+}
+function mapsLink(g){ return `https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lng}`; }
+
 /* ---------- خانات صور الهيرو ----------
    ارفع صورك إلى assets/img/hero/ بهذه الأسماء نفسها فتظهر مكانها تلقائياً.
    الخانة التي لا صورة لها تبقى إطاراً فارغاً هادئاً.
@@ -440,6 +457,10 @@ function viewCheckout(){
               <label class="radio"><input type="radio" name="method" value="pickup"><span class="dot"></span>
                 <span><b>استلام من المحل</b><small>مجاناً — ${esc(SITE.city)}</small></span></label>
             </div>
+            ${branches().length > 1 ? `<div class="field" id="fBranchWrap" hidden style="margin-top:14px">
+              <select id="fBranch">${branches().map((b, i) =>
+                `<option value="${esc(b.name)}"${i === 0 ? ' selected' : ''}>${esc(b.name)}${b.address ? ' — ' + esc(b.address) : ''}</option>`).join('')}</select>
+              <label for="fBranch">فرع الاستلام *</label>${icon('chevronDown', 'cv')}</div>` : ''}
           </div>
           <div>
             <h4 style="font-size:14.5px;margin-bottom:10px">طريقة الدفع</h4>
@@ -517,13 +538,16 @@ function viewOrder(id){
         <h3 style="font-size:16px;margin-bottom:12px">تفاصيل الطلب</h3>
         ${o.items.map(it => `<div class="sum"><span>${esc(it.name)} <small style="color:var(--grey-2)">× ${it.q}</small></span><b>${money(it.total)}</b></div>`).join('')}
         <div class="sum"><span>المجموع الفرعي</span><b>${priceHTML(o.subtotal)}</b></div>
-        <div class="sum"><span>التوصيل (${o.method === 'pickup' ? 'استلام من المحل' : esc(o.customer.gov)})</span>
+        <div class="sum"><span>التوصيل (${o.method === 'pickup'
+          ? 'استلام من المحل' + (o.branch ? ' — ' + esc(o.branch) : '') : esc(o.customer.gov)})</span>
           <b>${o.fee ? money(o.fee) : '<span class="free">مجاني</span>'}</b></div>
         <div class="sum total"><span>الإجمالي</span><b>${priceHTML(o.total)}</b></div>
         <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line-2);font-size:13.5px;color:var(--grey);display:grid;gap:5px">
           <span><b style="color:var(--ink)">الاسم:</b> ${esc(o.customer.name)}</span>
           <span><b style="color:var(--ink)">الهاتف:</b> <span dir="ltr">${esc(o.customer.phone)}</span></span>
-          <span><b style="color:var(--ink)">العنوان:</b> ${esc([o.customer.gov, o.customer.area, o.customer.address].filter(Boolean).join(' — '))}</span>
+          ${o.method === 'pickup' && o.branch
+            ? `<span><b style="color:var(--ink)">فرع الاستلام:</b> ${esc(o.branch)}</span>`
+            : `<span><b style="color:var(--ink)">العنوان:</b> ${esc([o.customer.gov, o.customer.area, o.customer.address].filter(Boolean).join(' — '))}</span>`}
           ${o.customer.note ? `<span><b style="color:var(--ink)">ملاحظات:</b> ${esc(o.customer.note)}</span>` : ''}
         </div>
         <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
@@ -556,44 +580,59 @@ function viewOrders(){
 }
 
 /* --- التواصل --- */
+function branchCard(b, i){
+  const g = branchGeo(b);
+  const name = b.name || SITE.name;
+  return `<div class="branch-card rv">
+    <div class="branch-map">
+      <div class="map-fb">${icon('location')}<b>${esc(name)}</b><span>${esc(b.address || '')}</span></div>
+      <iframe src="${mapEmbed(g)}" title="موقع ${esc(name)} على الخريطة" loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+    <div class="branch-body">
+      <h3>${icon('location')}<span>${esc(name)}</span></h3>
+      ${b.address ? `<p class="branch-addr">${esc(b.address)}</p>` : ''}
+      ${b.hours ? `<p class="branch-hours">${icon('clock')}<span>${esc(b.hours)}</span></p>` : ''}
+      <div class="branch-act">
+        ${b.phone ? `<a class="btn btn-sm" href="tel:${esc(b.phone)}">${icon('phone')}<span dir="ltr">${esc(fmtPhone(b.phone))}</span></a>` : ''}
+        <a class="btn btn-sm btn-outline" href="${mapsLink(g)}" target="_blank" rel="noopener">${icon('location')}<span>الاتجاهات</span></a>
+      </div>
+    </div>
+  </div>`;
+}
+
 function viewContact(){
+  const br = branches();
   const g = SITE.geo;
-  const bbox = [g.lng - .012, g.lat - .008, g.lng + .012, g.lat + .008].join(',');
-  const osm = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${g.lat},${g.lng}`;
-  const gmaps = `https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lng}`;
   return `<div class="wrap sec">
     ${crumbs([{ t:'الرئيسية', h:'#/' }, { t:'تواصل معنا' }])}
     <div class="sec-head"><div><span class="eyebrow">${icon('phone')}تواصل معنا</span>
       <h2>موقعنا وأرقام التواصل</h2><p>زُرنا في المحل أو تواصل معنا مباشرة — نجيب على استفساراتك الفنية بكل سرور.</p></div></div>
-    <div class="contact-grid">
-      <div class="cinfo">
-        <div class="cbox"><span class="pic">${icon('location')}</span>
-          <div><h4>عنوان المحل</h4><p>${esc(SITE.address)}</p>
-          <a href="${gmaps}" target="_blank" rel="noopener" style="color:var(--brand-700);font-weight:800;margin-top:6px">فتح في خرائط جوجل ←</a></div></div>
-        ${SITE.phones.map(ph => `<div class="cbox"><span class="pic">${icon('phone')}</span>
-          <div><h4>${esc(ph.label)}</h4><a class="num" href="tel:${ph.number}" dir="ltr">${esc(fmtPhone(ph.number))}</a></div></div>`).join('')}
-        <div class="cbox"><span class="pic">${icon('whatsapp')}</span>
-          <div><h4>واتساب</h4><p>أرسل استفسارك أو طلبك مباشرة</p>
-          <a class="btn btn-sm wa" style="margin-top:8px" target="_blank" rel="noopener"
-             href="${waLink('السلام عليكم، أود الاستفسار عن المواد المتوفرة لديكم.')}">${icon('whatsapp')}<span>بدء محادثة</span></a></div></div>
-        <div class="cbox"><span class="pic">${icon('clock')}</span>
-          <div><h4>أوقات الدوام</h4>${SITE.hours.map(h => `<p>${esc(h.d)}: <b style="color:var(--ink)">${esc(h.t)}</b></p>`).join('')}</div></div>
-        ${SITE.social.some(s => s.url) ? `<div class="cbox"><span class="pic">${icon('star')}</span>
-          <div style="flex:1"><h4>تابعنا</h4><div class="socials" style="margin-top:10px">
-            ${SITE.social.filter(s => s.url).map(s => `<a class="soc" href="${s.url}" target="_blank" rel="noopener" aria-label="${esc(s.name)}">${icon(s.id)}</a>`).join('')}
-          </div></div></div>` : ''}
-      </div>
-      <div class="map-card">
-        <div class="map-wrap">
-          <div class="map-fb">${icon('location')}<b>${esc(SITE.name)}</b><span>${esc(SITE.address)}</span></div>
-          <iframe src="${osm}" title="موقع المحل على الخريطة" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-        </div>
-        <div class="map-foot">
-          <div><b style="display:block">${esc(SITE.name)}</b><small style="color:var(--grey)">${esc(SITE.address)}</small></div>
-          <a class="btn btn-sm btn-tonal" href="${gmaps}" target="_blank" rel="noopener">${icon('location')}<span>الاتجاهات</span></a>
-        </div>
-      </div>
+
+    <div class="cinfo-grid">
+      ${SITE.phones.map(ph => `<div class="cbox"><span class="pic">${icon('phone')}</span>
+        <div><h4>${esc(ph.label)}</h4><a class="num" href="tel:${ph.number}" dir="ltr">${esc(fmtPhone(ph.number))}</a></div></div>`).join('')}
+      <div class="cbox"><span class="pic">${icon('whatsapp')}</span>
+        <div><h4>واتساب</h4><p>أرسل استفسارك أو طلبك مباشرة</p>
+        <a class="btn btn-sm wa" style="margin-top:8px" target="_blank" rel="noopener"
+           href="${waLink('السلام عليكم، أود الاستفسار عن المواد المتوفرة لديكم.')}">${icon('whatsapp')}<span>بدء محادثة</span></a></div></div>
+      <div class="cbox"><span class="pic">${icon('clock')}</span>
+        <div><h4>أوقات الدوام</h4>${SITE.hours.map(h => `<p>${esc(h.d)}: <b style="color:var(--ink)">${esc(h.t)}</b></p>`).join('')}</div></div>
+      ${SITE.social.some(x => x.url) ? `<div class="cbox"><span class="pic">${icon('star')}</span>
+        <div style="flex:1"><h4>تابعنا</h4><div class="socials" style="margin-top:10px">
+          ${SITE.social.filter(x => x.url).map(x => `<a class="soc" href="${x.url}" target="_blank" rel="noopener" aria-label="${esc(x.name)}">${icon(x.id)}</a>`).join('')}
+        </div></div></div>` : ''}
     </div>
+
+    ${br.length ? `<div class="sec-head" style="margin-top:52px"><div>
+        <span class="eyebrow">${icon('location')}${br.length > 1 ? 'فروعنا' : 'موقعنا'}</span>
+        <h2>${br.length > 1 ? `زُرنا في أيّ من فروعنا الـ${br.length}` : 'زُرنا في المحل'}</h2>
+        <p>${br.length > 1 ? 'لكل فرع موقعه على الخريطة ورقمه الخاص — اختر الأقرب إليك.' : 'موقع المحل على الخريطة ورقم التواصل المباشر.'}</p>
+      </div></div>
+      <div class="branch-grid">${br.map(branchCard).join('')}</div>`
+    : `<div class="branch-grid">${branchCard({ name:SITE.name, address:SITE.address, geo:g,
+          phone:(SITE.phones[0] || {}).number,
+          hours:(SITE.hours[0] ? SITE.hours[0].d + ': ' + SITE.hours[0].t : '') }, 0)}</div>`}
   </div>`;
 }
 
@@ -695,11 +734,21 @@ function normPhone(v){
 }
 function initCheckout(){
   const f = $('#orderForm'); if(!f) return;
+  /* فرع الاستلام: عنصر واحد ⇒ يُسجَّل تلقائياً بلا اختيار، وبلا فروع ⇒ لا شيء */
+  const pickedBranch = () => {
+    const b = branches();
+    if(!b.length) return '';
+    if(b.length === 1) return b[0].name || '';
+    return $('#fBranch') ? $('#fBranch').value : (b[0].name || '');
+  };
   const upd = () => {
     const method = f.querySelector('input[name=method]:checked').value;
     const gov = $('#fGov').value;
     const fee = store.deliveryFee(method, gov);
-    $('#feeLbl').innerHTML = method === 'pickup' ? 'استلام من المحل'
+    const bw = $('#fBranchWrap');
+    if(bw) bw.hidden = method !== 'pickup';
+    $('#feeLbl').innerHTML = method === 'pickup'
+      ? 'استلام من المحل' + (method === 'pickup' && pickedBranch() ? ` <small style="color:var(--grey-2)">(${esc(pickedBranch())})</small>` : '')
       : fee ? priceHTML(fee) : '<span class="free">مجاني</span>';
     $('#totLbl').innerHTML = priceHTML(store.subtotal + fee);
   };
@@ -725,7 +774,7 @@ function initCheckout(){
     try{
       const order = await store.placeOrder({
         name, phone, gov:$('#fGov').value, area:$('#fArea').value.trim(), address:addr, note:$('#fNote').value.trim()
-      }, method, pay);
+      }, method, pay, method === 'pickup' ? pickedBranch() : '');
       if(order) location.hash = '#/order/' + order.id;
     }catch(err){
       btn.disabled = false; lbl.textContent = old;
@@ -735,7 +784,7 @@ function initCheckout(){
         <br>يمكنك إرسال الطلب عبر واتساب مباشرة من الزر أدناه ونحن نسجّله لك.</span></div>`);
       $('#orderErr').scrollIntoView({ behavior:'smooth', block:'center' });
       const o = store.buildOrder({ name, phone, gov:$('#fGov').value, area:$('#fArea').value.trim(),
-        address:addr, note:$('#fNote').value.trim() }, method, pay);
+        address:addr, note:$('#fNote').value.trim() }, method, pay, method === 'pickup' ? pickedBranch() : '');
       $('#orderErr').insertAdjacentHTML('beforeend',
         `<a class="btn btn-sm wa" style="margin-inline-start:auto" target="_blank" rel="noopener"
             href="${waLink(orderText(o))}">${icon('whatsapp')}<span>إرسال عبر واتساب</span></a>`);
@@ -988,6 +1037,16 @@ function showPreviewBar(){
 
 function buildFooter(){
   $('#footCats').innerHTML = CATEGORIES.map(c => `<a href="#/c/${c.id}">${esc(c.name)}</a>`).join('');
+  const fb = $('#footBranches');
+  if(fb){
+    const br = branches();
+    fb.innerHTML = (br.length ? br : [{ name:'', address:SITE.address, phone:(SITE.phones[0] || {}).number }])
+      .map(b => `<div class="foot-branch">
+        ${b.name ? `<b>${esc(b.name)}</b>` : ''}
+        ${b.phone ? `<a href="tel:${esc(b.phone)}" dir="ltr" class="num">${esc(fmtPhone(b.phone))}</a>` : ''}
+        ${b.address ? `<a href="#/contact">${esc(b.address)}</a>` : ''}
+      </div>`).join('');
+  }
   $('#footLinks').innerHTML = [
     ['#/', 'الرئيسية'], ['#/categories', 'كل الأقسام'], ['#/cart', 'سلة التسوق'],
     ['#/fav', 'المفضلة'], ['#/orders', 'طلباتي'], ['#/contact', 'تواصل معنا']

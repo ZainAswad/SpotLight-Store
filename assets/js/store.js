@@ -82,7 +82,7 @@ const store = {
     const s = String(d.getFullYear()).slice(2) + pad(d.getMonth() + 1) + pad(d.getDate());
     return `${SITE.orders.prefix}-${s}-${String(n).padStart(3, '0')}`;
   },
-  buildOrder(customer, method, payment){
+  buildOrder(customer, method, payment, branch){
     const lines = this.lines;
     if(!lines.length) return null;
     const sub = this.subtotal;
@@ -91,15 +91,15 @@ const store = {
       no: this.nextOrderId(),          // رقم معروض للزبون
       at: Date.now(),
       status: 'pending',
-      customer, method, payment,
+      customer, method, payment, branch: branch || '',
       items: lines.map(l => ({ id:l.id, name:l.name, brand:l.brand, price:l.price, q:l.q, unit:l.unit || 'حبة', total:l.total })),
       subtotal: sub, fee, total: sub + fee,
       adminNote: ''
     };
   },
   /* يُحفظ الطلب في قاعدة البيانات إن كانت مضبوطة، وإلا محلياً فقط */
-  async placeOrder(customer, method, payment){
-    const order = this.buildOrder(customer, method, payment);
+  async placeOrder(customer, method, payment, branch){
+    const order = this.buildOrder(customer, method, payment, branch);
     if(!order) return null;
     let saved = { ...order, id: order.no, online: false };
     if(FB.ready()){
@@ -195,7 +195,7 @@ function orderText(o){
   L.push(`المحافظة: ${o.customer.gov}`);
   if(o.customer.address) L.push(`العنوان: ${o.customer.address}`);
   if(o.customer.note) L.push(`ملاحظات: ${o.customer.note}`);
-  L.push(`الاستلام: ${o.method === 'pickup' ? 'استلام من المحل' : 'توصيل إلى العنوان'}`);
+  L.push(`الاستلام: ${o.method === 'pickup' ? 'استلام من المحل' + (o.branch ? ' — ' + o.branch : '') : 'توصيل إلى العنوان'}`);
   L.push('');
   L.push('*المواد*');
   o.items.forEach((it, i) => L.push(`${i + 1}. ${it.name} — ${it.q} ${it.unit} × ${money(it.price)} = ${money(it.total)} ${SITE.currency}`));
