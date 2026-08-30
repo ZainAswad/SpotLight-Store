@@ -5,6 +5,31 @@ const $    = (s, r = document) => r.querySelector(s);
 const $$   = (s, r = document) => [...r.querySelectorAll(s)];
 const esc  = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
+/* ---------- خانات صور الهيرو ----------
+   ارفع صورك إلى assets/img/hero/ بهذه الأسماء نفسها فتظهر مكانها تلقائياً.
+   الخانة التي لا صورة لها تبقى إطاراً فارغاً هادئاً.
+   المقاسات المقترحة (نسبة الشكل هي المهمّة، لا الأبعاد الدقيقة):
+     hero-1.jpg  كبير  ~1200×1000    hero-2.jpg  صغير  ~600×500
+     hero-3.jpg  صغير  ~600×500      hero-4.jpg  عريض  ~1600×420
+   لتغيير رابط الخانة عدّل href هنا. هذا الملف لا تكتب عليه لوحة التحكم. */
+const HERO_SLOTS = [
+  { cls:'hs1', img:'assets/img/hero/hero-1.jpg', href:'#/categories', alt:'' },
+  { cls:'hs2', img:'assets/img/hero/hero-2.jpg', href:'#/categories', alt:'' },
+  { cls:'hs3', img:'assets/img/hero/hero-3.jpg', href:'#/categories', alt:'' },
+  { cls:'hs4', img:'assets/img/hero/hero-4.jpg', href:'#/categories', alt:'' }
+];
+/* خانة بلا صورة: نزيل الصورة ونترك الإطار فارغاً بلا أيقونة مكسورة */
+function heroSlotEmpty(el){
+  try{ el.closest('.hslot').classList.add('empty'); el.remove(); }catch(e){}
+}
+function heroFrames(){
+  return `<div class="hero-frames">${HERO_SLOTS.map(t => `
+    <a class="hslot ${t.cls}" href="${t.href}"${t.alt ? '' : ' aria-hidden="true" tabindex="-1"'}>
+      <img src="${assetUrl(t.img)}" alt="${esc(t.alt)}" loading="lazy" decoding="async"
+           onload="this.classList.add('ok')" onerror="heroSlotEmpty(this)">
+    </a>`).join('')}</div>`;
+}
+
 /* ---------- صورة المنتج ----------
    ASSET_REV: يتغيّر عند الحاجة لتجاوز نسخ محفوظة قديمة في متصفحات الزوار.  */
 const ASSET_REV = '3';
@@ -150,7 +175,7 @@ function viewHome(){
           ${stats.map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('')}
         </div>` : ''}
       </div>
-      <div class="hero-vis">${art('chandelier')}</div>
+      <div class="hero-vis">${heroFrames()}</div>
     </div></div></section>
 
     <section class="sec-sm"><div class="wrap"><div class="perks">
