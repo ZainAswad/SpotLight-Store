@@ -9,7 +9,7 @@
 .adm-bar{position:sticky;top:0;z-index:60;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line);box-shadow:var(--e1)}
 .adm-bar-in{display:flex;align-items:center;gap:14px;padding:12px 0;flex-wrap:wrap}
-.adm-bar img{width:44px;height:44px;border-radius:var(--r-sm);box-shadow:var(--e1)}
+.adm-bar img{width:44px;height:44px;border-radius:var(--r-sm);object-fit:contain}
 .adm-bar h1{font-size:16px;line-height:1.25}
 .adm-bar h1 small{display:block;font-size:11.5px;color:var(--brand-700);font-weight:800}
 .adm-actions{display:flex;gap:9px;margin-inline-start:auto;flex-wrap:wrap}
@@ -131,7 +131,7 @@ code{direction:ltr;display:inline-block;unicode-bidi:isolate}
 .lock{min-height:100vh;display:grid;place-items:center;padding:24px;
   background:radial-gradient(circle at 30% 20%,var(--brand-50),var(--bg) 60%)}
 .lock-card{background:#fff;border-radius:var(--r-xl);box-shadow:var(--e4);padding:38px 34px;width:min(420px,100%);text-align:center}
-.lock-card img{width:88px;height:82px;border-radius:var(--r-lg);margin:0 auto 18px;box-shadow:var(--e2)}
+.lock-card img{width:auto;height:64px;max-width:100%;object-fit:contain;margin:0 auto 18px}
 .lock-card h1{font-size:20px;margin-bottom:6px}
 .lock-card p{color:var(--grey);font-size:13.5px;margin-bottom:22px}
 .lock-card .field{text-align:start;margin-bottom:14px}

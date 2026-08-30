@@ -130,7 +130,7 @@ function viewHome(){
       <div>
         <img class="hero-logo" src="${assetUrl('assets/img/logo.png')}" alt="${esc(SITE.name)}" width="96" height="90">
         <div class="tag-pill">${icon('bolt')}<span>${esc(SITE.tagline)}</span></div>
-        <h1>${esc(SITE.shortName)} <span class="hl">للكهربائيات والإنارة الحديثة</span></h1>
+        <h1>${esc(SITE.shortName)} <span class="hl">للكهربائيات والانارة الحديثة</span></h1>
         <p class="lead">${esc(SITE.about)}</p>
         <div class="hero-cta">
           <a class="btn btn-lg" href="#/categories">${icon('grid')}<span>تصفّح الأقسام</span></a>
