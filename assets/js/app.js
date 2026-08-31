@@ -14,7 +14,7 @@ function branches(){
 }
 function branchGeo(b){
   const g = b && b.geo;
-  return (g && +g.lat && +g.lng) ? g : SITE.geo;
+  return (g && +g.lat && +g.lng) ? g : null;   // null = لم تُضبط إحداثيات هذا الفرع
 }
 function mapEmbed(g){
   const bbox = [g.lng - .012, g.lat - .008, g.lng + .012, g.lat + .008].join(',');
@@ -584,10 +584,11 @@ function branchCard(b, i){
   const g = branchGeo(b);
   const name = b.name || SITE.name;
   return `<div class="branch-card rv">
-    <div class="branch-map">
-      <div class="map-fb">${icon('location')}<b>${esc(name)}</b><span>${esc(b.address || '')}</span></div>
-      <iframe src="${mapEmbed(g)}" title="موقع ${esc(name)} على الخريطة" loading="lazy"
-              referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <div class="branch-map${g ? '' : ' no-geo'}">
+      <div class="map-fb">${icon('location')}<b>${esc(name)}</b>
+        <span>${g ? esc(b.address || '') : 'لم تُضبط إحداثيات هذا الفرع بعد'}</span></div>
+      ${g ? `<iframe src="${mapEmbed(g)}" title="موقع ${esc(name)} على الخريطة" loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"></iframe>` : ''}
     </div>
     <div class="branch-body">
       <h3>${icon('location')}<span>${esc(name)}</span></h3>
@@ -595,7 +596,7 @@ function branchCard(b, i){
       ${b.hours ? `<p class="branch-hours">${icon('clock')}<span>${esc(b.hours)}</span></p>` : ''}
       <div class="branch-act">
         ${b.phone ? `<a class="btn btn-sm" href="tel:${esc(b.phone)}">${icon('phone')}<span dir="ltr">${esc(fmtPhone(b.phone))}</span></a>` : ''}
-        <a class="btn btn-sm btn-outline" href="${mapsLink(g)}" target="_blank" rel="noopener">${icon('location')}<span>الاتجاهات</span></a>
+        ${g ? `<a class="btn btn-sm btn-outline" href="${mapsLink(g)}" target="_blank" rel="noopener">${icon('location')}<span>الاتجاهات</span></a>` : ''}
       </div>
     </div>
   </div>`;
