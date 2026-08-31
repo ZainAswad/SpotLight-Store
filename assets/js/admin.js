@@ -1570,7 +1570,8 @@ function renderOrders(){
       <p style="color:var(--grey);font-size:13.5px;margin-bottom:16px">
         سجّل دخولك بحساب المدير الذي أنشأته في Firebase. يبقى الدخول محفوظاً على هذا الجهاز.</p>
       <div class="f2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-        <div class="field"><input id="fbEmail" placeholder=" " dir="ltr" autocomplete="username"><label>البريد الإلكتروني</label></div>
+        <div class="field"><input id="fbEmail" type="email" inputmode="email" spellcheck="false"
+          placeholder=" " dir="ltr" autocomplete="email"><label>البريد الإلكتروني</label></div>
         <div class="field"><input id="fbPass" type="password" placeholder=" " autocomplete="current-password"><label>كلمة السر</label></div>
       </div>
       <button class="btn btn-lg" id="fbLogin" style="margin-top:6px">${icon('shield')}<span>دخول</span></button>
@@ -1635,11 +1636,24 @@ function orderCard(o){
   </div>`;
 }
 
+/* علامات الاتجاه غير المرئية تتسلّل عند النسخ من نص عربي، فتصل إلى Google
+   ضمن البريد ويردّ INVALID_EMAIL. نزيلها قبل أي استخدام. */
+const BIDI_RE = /[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
+function cleanEmail(v){ return String(v == null ? '' : v).replace(BIDI_RE, '').trim(); }
+function isEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v); }
+
 async function doFbLogin(){
-  const email = $('#fbEmail').value.trim(), pass = $('#fbPass').value;
+  const emailEl = $('#fbEmail');
+  const email = cleanEmail(emailEl.value), pass = $('#fbPass').value;
+  emailEl.value = email;                 // نعيد القيمة النظيفة ليرى المستخدم ما سيُرسل
   const msg = $('#fbLoginMsg');
   const say = (m, cls) => { msg.innerHTML = `<div class="note ${cls || 'note-warn'}" style="margin:0">${icon('close')}<span>${esc(m)}</span></div>`; };
   if(!email || !pass){ say('أدخل البريد وكلمة السر.'); return; }
+  if(!isEmail(email)){
+    say('حقل البريد لا يحتوي بريداً إلكترونياً صحيحاً. امسح الحقل واكتبه بيدك — قد يكون المتصفح ملأه تلقائياً بقيمة أخرى.');
+    emailEl.focus(); emailEl.select();
+    return;
+  }
   const b = $('#fbLogin'); b.disabled = true; b.querySelector('span').textContent = 'جارٍ الدخول…';
   try{
     await FB.signIn(email, pass);

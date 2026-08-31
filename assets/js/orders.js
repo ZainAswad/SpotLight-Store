@@ -44,6 +44,8 @@ const FB = {
       'UNAUTHENTICATED': 'انتهت الجلسة — سجّل الدخول من جديد.',
       'INVALID_ARGUMENT': 'بيانات غير مقبولة من الخادم.',
       'EMAIL_NOT_FOUND': 'البريد غير مسجّل.',
+      'INVALID_EMAIL': 'صيغة البريد غير صحيحة — امسح الحقل واكتب البريد بيدك.',
+      'MISSING_EMAIL': 'لم يُرسَل بريد — اكتب بريد حساب المدير في الحقل.',
       'INVALID_PASSWORD': 'كلمة السر غير صحيحة.',
       'INVALID_LOGIN_CREDENTIALS': 'البريد أو كلمة السر غير صحيحة.',
       'TOO_MANY_ATTEMPTS_TRY_LATER': 'محاولات كثيرة — انتظر قليلاً.'
