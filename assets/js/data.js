@@ -1,6 +1,7 @@
 /* =============================================================
    سبوت لايت للكهربائيات والانارة الحديثة
-   ملف البيانات — يمكن تعديله يدوياً، أو من admin.html
+   ملف البيانات — وُلّد من لوحة التحكم بتاريخ ٣١‏/٨‏/٢٠٢٦، ٤:٢٦:٢٠ م
+   يمكن تعديله يدوياً أيضاً، أو من admin.html
    ============================================================= */
 
 /* ---------- 1) إعدادات المتجر ---------- */
@@ -14,24 +15,24 @@ let SITE = {
   siteUrl: 'https://spot-light-store.vercel.app',
   phones: [
     { label: 'الفرع الأول', number: '07719222273', intl: '9647719222273' },
-    { label: 'الفرع الأول — رقم بديل', number: '07819222273', intl: '9647819222273' },
+    { label: 'الفرع الأول', number: '07819222273', intl: '9647819222273' },
     { label: 'الفرع الثاني', number: '07760199193', intl: '9647760199193' }
   ],
   whatsapp: '9647719222273',
-  address: 'الفرع الأول: كربلاء — حي العباس — مقابل عمود 7 · الفرع الثاني: كربلاء — شارع محطة سماء كربلاء مقابل الحي الصناعي — قرب تقاطع الوفاء والميلاد',
+  address: 'الفرع الأول: كربلاء — حي العباس — مقابل عمود 7',
   city: 'كربلاء',
   hours: [
     { d: 'كل أيام الأسبوع', t: '8:00 صباحاً — 11:00 مساءً' }
   ],
-  geo: { lat: 32.616, lng: 44.0242, zoom: 15 },
+  geo: { lat: 32.6350764, lng: 44.0455457, zoom: 15 },
   // الفروع — الموقع يعمل بفرع واحد أو بلا فروع
   branches: [
-    { name: 'الفرع الأول', address: 'كربلاء — حي العباس — مقابل عمود 7',
-      geo: { lat: 32.616, lng: 44.0242, zoom: 15 },
-      phone: '07719222273', hours: 'كل أيام الأسبوع: 8:00 صباحاً — 11:00 مساءً' },
-    { name: 'الفرع الثاني', address: 'كربلاء — شارع محطة سماء كربلاء، مقابل الحي الصناعي — قرب تقاطع الوفاء والميلاد',
-      geo: { lat: 32.616, lng: 44.0242, zoom: 15 },
-      phone: '07760199193', hours: 'كل أيام الأسبوع: 8:00 صباحاً — 11:00 مساءً' }
+    { name: 'الفرع الاول', address: 'كربلاء — حي العباس — مقابل عمود 7',
+      geo: { lat: 32.6350764, lng: 44.0455457, zoom: 15 },
+      phone: '07719222273', hours: 'جميع ايام الاسبوع  من 8:00 صباحاً — 11:00 مساءً' },
+    { name: 'الفرع الثاني', address: 'كربلاء — شارع محطة سماء كربلاء مقابل الحي الصناعي — قرب تقاطع الوفاء والميلاد',
+      geo: { lat: 0, lng: 0, zoom: 15 },
+      phone: '07760199193', hours: 'جميع ايام الاسبوع 8:00 صباحاً — 11:00 مساءً' }
   ],
   social: [
     { id: 'facebook', name: 'فيسبوك', url: 'https://web.facebook.com/spotlight.karbala/' },
@@ -47,7 +48,7 @@ let SITE = {
   },
   // إعدادات لوحة التحكم (admin.html) — غيّر كلمة السر من داخل اللوحة نفسها
   admin: {
-    hash: 'e5fcd84f8e29f34bcb5631a040d9719d9a9ccada684c4534681b0c2d34df06ea',
+    hash: '81e3c09875e371120452e25d77494d217952fb81ac047db4fdcf867ea91c59ea',
     repo: 'ZainAswad/SpotLight-Store',
     branch: 'main'
   },
@@ -142,7 +143,6 @@ let CATEGORIES = [
 /* ---------- 3) العلامات التجارية ---------- */
 let BRANDS = [
   { name: 'Aswar', ar: 'أسوار', logo: 'assets/img/brands/aswar.png' },
-  { name: 'OTG', ar: 'أو تي جي', logo: 'assets/img/brands/otg.png' },
   { name: 'Siemens', ar: 'سيمنز', logo: 'assets/img/brands/siemens.png' },
   { name: 'Schneider', ar: 'شنايدر', logo: 'assets/img/brands/schneider.png' },
   { name: 'Philips', ar: 'فيليبس', logo: 'assets/img/brands/philips.png' },
@@ -154,7 +154,9 @@ let BRANDS = [
   { name: 'Aqaba', ar: 'العقبة', logo: 'assets/img/brands/aqaba.png' },
   { name: 'Almustaqbal', ar: 'المستقبل السعودي', logo: 'assets/img/brands/mustaqbal.png' },
   { name: 'Ingco', ar: 'إنجكو', logo: 'assets/img/brands/ingco.png' },
-  { name: 'CHINT', ar: 'جاينت', logo: 'assets/img/brands/chint.png' }
+  { name: 'CHINT', ar: 'جاينت', logo: 'assets/img/brands/chint.png' },
+  { name: 'TOTAL', ar: 'توتال', logo: 'assets/img/brands/total.png' },
+  { name: 'dahua', ar: 'داهوا', logo: 'assets/img/brands/dahua.png' }
 ];
 
 /* ---------- 4) المنتجات ---------- */
