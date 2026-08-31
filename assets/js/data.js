@@ -1,6 +1,6 @@
 /* =============================================================
    سبوت لايت للكهربائيات والانارة الحديثة
-   ملف البيانات — وُلّد من لوحة التحكم بتاريخ ٣١‏/٨‏/٢٠٢٦، ٢:٥٤:٥٥ ص
+   ملف البيانات — وُلّد من لوحة التحكم بتاريخ ٣١‏/٨‏/٢٠٢٦، ١٠:٠٥:٢٧ ص
    يمكن تعديله يدوياً أيضاً، أو من admin.html
    ============================================================= */
 
@@ -48,7 +48,7 @@ let SITE = {
   },
   // إعدادات لوحة التحكم (admin.html) — غيّر كلمة السر من داخل اللوحة نفسها
   admin: {
-    hash: 'e5fcd84f8e29f34bcb5631a040d9719d9a9ccada684c4534681b0c2d34df06ea',
+    hash: '6d8a1b94a7c55fdb9c2289bf1bcaa8ed705f139bf0bde4845900ba5ce5b01d33',
     repo: 'ZainAswad/SpotLight-Store',
     branch: 'main'
   },
@@ -143,7 +143,6 @@ let CATEGORIES = [
 /* ---------- 3) العلامات التجارية ---------- */
 let BRANDS = [
   { name: 'Aswar', ar: 'أسوار', logo: 'assets/img/brands/aswar.png' },
-  { name: 'OTG', ar: 'أو تي جي', logo: 'assets/img/brands/otg.png' },
   { name: 'Siemens', ar: 'سيمنز', logo: 'assets/img/brands/siemens.png' },
   { name: 'Schneider', ar: 'شنايدر', logo: 'assets/img/brands/schneider.png' },
   { name: 'Philips', ar: 'فيليبس', logo: 'assets/img/brands/philips.png' },
@@ -155,7 +154,9 @@ let BRANDS = [
   { name: 'Aqaba', ar: 'العقبة', logo: 'assets/img/brands/aqaba.png' },
   { name: 'Almustaqbal', ar: 'المستقبل السعودي', logo: 'assets/img/brands/mustaqbal.png' },
   { name: 'Ingco', ar: 'إنجكو', logo: 'assets/img/brands/ingco.png' },
-  { name: 'CHINT', ar: 'جاينت', logo: 'assets/img/brands/chint.png' }
+  { name: 'CHINT', ar: 'جاينت', logo: 'assets/img/brands/chint.png' },
+  { name: 'TOTAL', ar: 'توتال', logo: 'assets/img/brands/total.png' },
+  { name: 'dahua', ar: 'داهوا', logo: 'assets/img/brands/dahua.png' }
 ];
 
 /* ---------- 4) المنتجات ---------- */
