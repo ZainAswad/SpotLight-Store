@@ -82,6 +82,42 @@ function media(p, cls){
         onload="this.classList.add('ok')" onerror="imgFallback(this)">`
     : art(p.icon);
 }
+/* ---------- معرض صور المنتج ----------
+   images مصفوفة المسارات، و image يبقى الصورة الأساسية للبطاقات والمشاركة.
+   imgsData تحمل صور المسودّة قبل نشرها (من لوحة التحكم فقط). */
+function gallery(p){
+  const paths = Array.isArray(p.images) && p.images.length
+    ? p.images
+    : (p.image ? [p.image] : []);
+  const draft = Array.isArray(p.imgsData) ? p.imgsData : [];
+  const out = paths.map((path, i) => ({ src: draft[i] || assetUrl(path), path }));
+  if(!out.length && p.imgData) out.push({ src:p.imgData, path:'' });
+  return out;
+}
+/* شريط صور بالتمرير والالتقاط — يعمل باللمس والفأرة ولوحة المفاتيح */
+function galleryHTML(p, cls){
+  const g = gallery(p);
+  if(!g.length) return `<div class="${cls}">${art(p.icon)}</div>`;
+  if(g.length === 1)
+    return `<div class="${cls}"><img src="${esc(g[0].src)}" alt="${esc(p.name)}" loading="lazy" decoding="async"
+      data-fb="${esc(p.icon || 'junction')}"${g[0].path ? ` data-orig="${esc(g[0].path)}"` : ''}
+      onload="this.classList.add('ok')" onerror="imgFallback(this)"></div>`;
+  return `<div class="${cls} gal" data-gal>
+    <div class="gal-track" tabindex="0" role="group" aria-label="صور ${esc(p.name)}">
+      ${g.map((im, i) => `<div class="gal-slide"><img src="${esc(im.src)}"
+        alt="${esc(p.name)} — صورة ${i + 1} من ${g.length}" loading="${i ? 'lazy' : 'eager'}" decoding="async"
+        data-fb="${esc(p.icon || 'junction')}"${im.path ? ` data-orig="${esc(im.path)}"` : ''}
+        onload="this.classList.add('ok')" onerror="imgFallback(this)"></div>`).join('')}
+    </div>
+    <button class="gal-nav prev" type="button" data-gnav="-1" aria-label="الصورة السابقة">${icon('chevron')}</button>
+    <button class="gal-nav next" type="button" data-gnav="1" aria-label="الصورة التالية">${icon('chevron')}</button>
+    <div class="gal-dots" role="tablist">${g.map((_, i) =>
+      `<button type="button" class="${i ? '' : 'on'}" data-gdot="${i}" role="tab"
+        aria-label="الصورة ${i + 1}"></button>`).join('')}</div>
+    <span class="gal-count"><b>1</b>/${g.length}</span>
+  </div>`;
+}
+
 function subLabel(p){
   const s = subInfo(p.cats[0]);
   return s ? s.name : '';
@@ -331,7 +367,7 @@ function viewProduct(id){
   return `<div class="wrap sec">
     ${crumbs([{ t:'الرئيسية', h:'#/' }, ...(s ? [{ t:s.parent.name, h:'#/c/' + s.parent.id }, { t:s.name, h:`#/c/${s.parent.id}/${s.id}` }] : []), { t:p.name }])}
     <div class="panel"><div class="qv">
-      <div class="qv-media">${media(p)}</div>
+      ${galleryHTML(p, 'qv-media')}
       <div class="qv-body">
         <span class="card-brand">${esc(p.brand)} · ${esc(p.id)}</span>
         <h3>${esc(p.name)}</h3>
@@ -678,10 +714,54 @@ function afterRender(s){
   reveal();
   markNav(s[0]);
   $$('.field select').forEach(x => x.classList.add('filled'));
+  initGalleries();
   if(s[0] === 'checkout') initCheckout();
   if(s[0] === 'order') refreshOrderStatus(s[1]);
   if(s[0] === 'orders') refreshMyOrders();
   closeDrawer();
+}
+
+/* ---------- تفعيل معارض الصور ----------
+   التمرير هو المصدر الوحيد للحقيقة: الأسهم والنقاط تُمرّر، والمؤشّر
+   يُحسب من موضع التمرير. فلا تتعارض حالتان. */
+function initGalleries(root){
+  $$('[data-gal]', root || document).forEach(g => {
+    if(g.dataset.galOn) return;
+    g.dataset.galOn = '1';
+    const track = $('.gal-track', g);
+    const dots  = $$('[data-gdot]', g);
+    const cnt   = $('.gal-count b', g);
+    const n     = $$('.gal-slide', g).length;
+    const rtl   = getComputedStyle(g).direction === 'rtl';
+    const at = () => Math.round(Math.abs(track.scrollLeft) / (track.clientWidth || 1));
+    const go = i => {
+      const k = Math.max(0, Math.min(n - 1, i));
+      track.scrollTo({ left: (rtl ? -1 : 1) * k * track.clientWidth, behavior:'smooth' });
+    };
+    const sync = () => {
+      const i = Math.max(0, Math.min(n - 1, at()));
+      dots.forEach((d, k) => d.classList.toggle('on', k === i));
+      if(cnt) cnt.textContent = i + 1;
+      $('.gal-nav.prev', g).disabled = i === 0;
+      $('.gal-nav.next', g).disabled = i === n - 1;
+    };
+    let raf = 0;
+    track.addEventListener('scroll', () => {
+      if(raf) return;
+      raf = requestAnimationFrame(() => { raf = 0; sync(); });
+    }, { passive:true });
+    g.addEventListener('click', e => {
+      const nav = e.target.closest('[data-gnav]');
+      if(nav){ go(at() + (+nav.dataset.gnav)); return; }
+      const dot = e.target.closest('[data-gdot]');
+      if(dot) go(+dot.dataset.gdot);
+    });
+    track.addEventListener('keydown', e => {
+      if(e.key === 'ArrowRight'){ e.preventDefault(); go(at() + (rtl ? -1 : 1)); }
+      if(e.key === 'ArrowLeft'){  e.preventDefault(); go(at() + (rtl ? 1 : -1)); }
+    });
+    sync();
+  });
 }
 
 function markNav(k){
@@ -707,7 +787,7 @@ function openQuick(id){
   const p = byId(id); if(!p) return;
   const off = discount(p);
   $('#modalBody').innerHTML = `<button class="ibtn modal-close" data-mclose aria-label="إغلاق">${icon('close')}</button>
-    <div class="qv"><div class="qv-media">${media(p)}</div>
+    <div class="qv">${galleryHTML(p, 'qv-media')}
     <div class="qv-body">
       <span class="card-brand">${esc(p.brand)} · ${esc(p.id)}</span>
       <h3>${esc(p.name)}</h3>
@@ -722,6 +802,7 @@ function openQuick(id){
       </div>
       <div class="qv-cats">${p.cats.map(k => { const x = subInfo(k); return x ? `<a href="#/c/${x.parent.id}/${x.id}" data-mclose>${esc(x.name)}</a>` : ''; }).join('')}</div>
     </div></div>`;
+  initGalleries($('#modalBody'));
   $('#modal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }

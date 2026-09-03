@@ -635,6 +635,44 @@ html[dir=rtl] .sel select{padding:8px 13px 8px 32px}
   transition:background var(--t) var(--ease),color var(--t) var(--ease)}
 .qv-cats a:hover{background:var(--brand);color:#fff}
 
+/* --- معرض صور المنتج: صفح بالتمرير والالتقاط --- */
+.gal{position:relative;display:block;padding:0!important;overflow:hidden}
+.qv-media>img{max-height:100%;object-fit:contain}
+.gal-track{display:flex;overflow-x:auto;overscroll-behavior-x:contain;
+  scroll-snap-type:x mandatory;scrollbar-width:none;width:100%;height:100%}
+.gal-track::-webkit-scrollbar{display:none}
+.gal-track:focus-visible{outline:3px solid var(--brand);outline-offset:-3px}
+.gal-slide{flex:0 0 100%;scroll-snap-align:center;scroll-snap-stop:always;
+  display:grid;place-items:center;padding:34px;min-width:0}
+.gal-slide img{max-width:100%;max-height:100%;object-fit:contain;
+  opacity:0;transition:opacity .3s var(--ease)}
+.gal-slide img.ok{opacity:1}
+
+.gal-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+  width:38px;height:38px;border-radius:var(--r-pill);display:grid;place-items:center;
+  background:rgba(255,255,255,.94);color:var(--ink);box-shadow:var(--e2);
+  transition:background var(--t) var(--ease),opacity var(--t) var(--ease),transform var(--t) var(--ease)}
+.gal-nav .ic{width:18px;height:18px}
+.gal-nav:hover{background:#fff;transform:translateY(-50%) scale(1.08)}
+.gal-nav[disabled]{opacity:.32;pointer-events:none}
+.gal-nav.prev{inset-inline-start:12px}
+.gal-nav.next{inset-inline-end:12px}
+html[dir=rtl] .gal-nav.next .ic{transform:scaleX(1)}
+html[dir=rtl] .gal-nav.prev .ic{transform:scaleX(-1)}
+html:not([dir=rtl]) .gal-nav.prev .ic{transform:scaleX(1)}
+html:not([dir=rtl]) .gal-nav.next .ic{transform:scaleX(-1)}
+
+.gal-dots{position:absolute;bottom:12px;inset-inline:0;z-index:3;
+  display:flex;gap:7px;justify-content:center}
+.gal-dots button{width:8px;height:8px;border-radius:var(--r-pill);background:rgba(20,26,46,.26);
+  transition:background var(--t) var(--ease),width var(--t) var(--ease)}
+.gal-dots button.on{background:var(--brand);width:22px}
+.gal-count{position:absolute;top:12px;inset-inline-end:12px;z-index:3;
+  background:rgba(20,26,46,.62);color:#fff;font-size:11.5px;font-weight:700;
+  padding:3px 9px;border-radius:var(--r-pill);letter-spacing:.4px;direction:ltr}
+@media (hover:none){.gal-nav{display:none}}
+@media (prefers-reduced-motion:reduce){.gal-track{scroll-behavior:auto}}
+
 /* ---------- 17) التنبيهات ---------- */
 .toasts{position:fixed;bottom:24px;inset-inline-start:24px;z-index:120;display:grid;gap:10px;pointer-events:none}
 .toast{display:flex;align-items:center;gap:11px;background:var(--ink);color:#fff;padding:13px 18px;border-radius:var(--r);
@@ -796,6 +834,8 @@ html[dir=rtl] .footer a:not(.soc):not(.btn):hover{transform:translateX(-4px)}
   .count{top:2px}
   .qv{grid-template-columns:1fr}
   .qv-media{min-height:220px;padding:22px}
+  .gal-slide{padding:22px}
+  .gal-dots{bottom:9px}
   .qv-body{padding:22px}
 }
 @media (max-width:680px){

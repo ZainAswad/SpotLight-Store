@@ -209,3 +209,26 @@ details summary::-webkit-details-marker{display:none}
 .ordtotal{font-size:17px;font-weight:900;color:var(--brand-800)}
 .ordtotal small{font-size:11.5px;color:var(--grey)}
 @media (max-width:680px){ .ordgrid{grid-template-columns:1fr} }
+
+/* شبكة صور المادة */
+.imgbox .imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;margin-bottom:12px}
+.imgcell{position:relative;aspect-ratio:1/1;border:1.5px solid var(--line);border-radius:var(--r);
+  overflow:hidden;background:var(--surface-2);display:grid;place-items:center}
+.imgcell.main{border-color:var(--brand)}
+.imgcell img,.imgcell .art{width:100%;height:100%;object-fit:contain;padding:6px}
+.imgcell.empty{grid-column:1/-1;aspect-ratio:auto;padding:22px;gap:8px;color:var(--grey-2);font-size:12.5px}
+.imgcell.empty .art{width:52px;height:52px;padding:0}
+.imgcell .tagmain,.imgcell .tagnew{position:absolute;top:5px;font-size:10px;font-weight:800;
+  padding:2px 7px;border-radius:var(--r-pill);color:#fff}
+.imgcell .tagmain{inset-inline-start:5px;background:var(--brand)}
+.imgcell .tagnew{inset-inline-end:5px;background:var(--navy)}
+.imgcell-act{position:absolute;inset-inline:0;bottom:0;display:flex;justify-content:center;gap:2px;
+  padding:4px;background:linear-gradient(0deg,rgba(20,26,46,.72),transparent);
+  opacity:0;transition:opacity var(--t) var(--ease)}
+.imgcell:hover .imgcell-act,.imgcell:focus-within .imgcell-act{opacity:1}
+.imgcell-act .ibtn{width:28px;height:28px;color:#fff}
+.imgcell-act .ibtn .ic{width:15px;height:15px}
+.imgcell-act .ibtn:hover{background:rgba(255,255,255,.2);color:#fff}
+.imgcell-act .ibtn[disabled]{opacity:.3;pointer-events:none}
+.imgcell-act .ibtn.del:hover{background:var(--brand);color:#fff}
+.imgcell-act [data-imv$="|1"] .ic{transform:scaleX(-1)}

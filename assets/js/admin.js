@@ -49,7 +49,7 @@ function markDirty(v = true){ dirty = v; document.body.classList.toggle('dirty',
 /* نص قياسي للمقارنة (بدون سطر التاريخ وبدون بيانات الصور المؤقتة) */
 function coreOf(d){
   const c = clone(d);
-  (c.PRODUCTS || []).forEach(p => { delete p.imgData; delete p.imgNew; });
+  (c.PRODUCTS || []).forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData; });
   (c.BRANDS || []).forEach(b => { delete b.logoData; delete b.logoNew; });
   return bodyOf(serializeData(c));
 }
@@ -193,6 +193,16 @@ function objLines(o, keys, ind){
     .map(k => `${pad}${ID_RE.test(k) ? k : q(k)}: ${Array.isArray(o[k]) ? inlineArr(o[k]) : val(o[k])}`)
     .join(',\n');
 }
+/* الصور المعلّقة في مادة: [{ i, path, data }] لكل صورة لم تُرفع بعد */
+function pendingImgs(p){
+  const paths = p.images || (p.image ? [p.image] : []);
+  const data  = p.imgsData || (p.imgData ? [p.imgData] : []);
+  const out = [];
+  paths.forEach((path, i) => { if(data[i]) out.push({ i, path, data:data[i] }); });
+  return out;
+}
+function hasPendingImg(p){ return pendingImgs(p).length > 0; }
+
 function serializeData(d){
   const S = d.SITE;
   const L = [];
@@ -278,6 +288,7 @@ function serializeData(d){
     if(p.badge) tail.push(`badge: ${q(p.badge)}`);
     if(p.unit && p.unit !== 'حبة') tail.push(`unit: ${q(p.unit)}`);
     if(p.image) tail.push(`image: ${q(p.image)}`);
+    if((p.images || []).length > 1) tail.push(`images: ${inlineArr(p.images)}`);
     let s = `  { ${head}, ${nums.join(', ')}, ${tail.join(', ')},\n`;
     s += `    cats: ${inlineArr(p.cats)}, desc: ${q(p.desc || '')},\n`;
     s += `    specs: ${inlineArr(p.specs || [])} }`;
@@ -289,7 +300,7 @@ function serializeData(d){
 }
 function exportData(){
   const d = clone(D);
-  d.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; });
+  d.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData; });
   d.BRANDS.forEach(b => { delete b.logoData; delete b.logoNew; });
   return serializeData(d);
 }
@@ -351,8 +362,8 @@ function renderTable(){
     <div class="trow head"><span><input type="checkbox" id="selAll"${allSel ? ' checked' : ''} aria-label="تحديد الكل"></span><span>المادة</span><span>العلامة</span><span>السعر</span><span>الحالة</span><span></span></div>
     ${rows.length ? rows.map(p => `<div class="trow" data-row="${esc(p.id)}" role="button" tabindex="0">
       <span class="tsel"><input type="checkbox" data-sel="${esc(p.id)}"${sel.has(p.id) ? ' checked' : ''} aria-label="تحديد"></span>
-      <span class="tthumb">${p.imgData || p.image
-        ? `<img src="${esc(p.imgData || assetUrl(p.image))}" alt="" data-fb="${esc(p.icon || 'junction')}"${p.image ? ` data-orig="${esc(p.image)}"` : ''} onerror="imgFallback(this)">`
+      <span class="tthumb">${(p.imgsData || [])[0] || p.imgData || p.image
+        ? `<img src="${esc((p.imgsData || [])[0] || p.imgData || assetUrl(p.image))}" alt="" data-fb="${esc(p.icon || 'junction')}"${p.image ? ` data-orig="${esc(p.image)}"` : ''} onerror="imgFallback(this)">`
         : art(p.icon)}</span>
       <span class="tname"><b>${esc(p.name)}</b><small>${esc(p.id)}</small>
         <span class="tcats">${p.cats.map(c => `<span>${esc(subName(c))}</span>`).join('')}</span></span>
@@ -404,7 +415,10 @@ function productSheet(id){
   let specs = (p.specs || []).slice();
   let cats = (p.cats || []).slice();
   let iconSel = p.icon || 'bulb';
-  let imgData = p.imgData || '', imgPath = p.image || '', imgNew = false;
+  /* صور المادة: مسارات + بيانات مسودّة موازية لها */
+  let imgs = (Array.isArray(p.images) && p.images.length ? p.images.slice()
+            : (p.image ? [p.image] : [])).map((path, i) => ({
+              path, data: (p.imgsData || [])[i] || (i === 0 ? (p.imgData || '') : '') }));
 
   openSheet(isNew ? 'إضافة مادة جديدة' : 'تعديل المادة', `
     <div class="form">
@@ -443,16 +457,14 @@ function productSheet(id){
         <div class="chiplist" id="specList"></div>
       </div>
 
-      <div><h4 style="font-size:14px;margin-bottom:8px">صورة المادة</h4>
+      <div><h4 style="font-size:14px;margin-bottom:8px">صور المادة
+          <small style="color:var(--grey);font-weight:600">— الأولى هي الأساسية، والزبون يصفح البقية بالتمرير</small></h4>
         <div class="imgbox">
-          <div class="prev" id="imgPrev">${imgData || imgPath
-            ? `<img src="${esc(imgData || assetUrl(imgPath))}" alt="" data-fb="${esc(iconSel)}" onerror="imgFallback(this)">`
-            : art(iconSel)}</div>
-          <div class="meta" id="imgMeta">${imgPath ? `الصورة الحالية: <code>${esc(imgPath)}</code>` : 'لا توجد صورة — تُستخدم الرسمة التوضيحية أدناه.'}</div>
+          <div class="imgs" id="imgList"></div>
+          <div class="meta" id="imgMeta"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <label class="btn btn-sm btn-tonal">${icon('box')}<span>اختيار صورة</span>
-              <input type="file" id="imgIn" accept="image/*" hidden></label>
-            <button class="btn btn-sm btn-ghost" type="button" id="imgDel"${imgData || imgPath ? '' : ' style="display:none"'}>${icon('trash')}<span>إزالة</span></button>
+            <label class="btn btn-sm btn-tonal">${icon('plus')}<span>إضافة صور</span>
+              <input type="file" id="imgIn" accept="image/*" multiple hidden></label>
           </div>
         </div>
       </div>
@@ -480,23 +492,50 @@ function productSheet(id){
     const b = e.target.closest('[data-ic]'); if(!b) return;
     iconSel = b.dataset.ic;
     $$('#iconpick button').forEach(x => x.classList.toggle('on', x === b));
-    if(!imgData && !imgPath) $('#imgPrev').innerHTML = art(iconSel);
+    if(!imgs.length) drawImgs();
   };
+  const drawImgs = () => {
+    $('#imgList').innerHTML = imgs.length
+      ? imgs.map((im, i) => `<div class="imgcell${i ? '' : ' main'}" data-imi="${i}">
+          <img src="${esc(im.data || assetUrl(im.path))}" alt="" data-fb="${esc(iconSel)}"
+               ${im.path ? `data-orig="${esc(im.path)}"` : ''} onerror="imgFallback(this)">
+          ${i ? '' : '<span class="tagmain">الأساسية</span>'}
+          ${im.data ? '<span class="tagnew">جديدة</span>' : ''}
+          <div class="imgcell-act">
+            <button class="ibtn" type="button" data-imv="${i}|-1" title="تقديم"${i ? '' : ' disabled'}>${icon('chevron')}</button>
+            <button class="ibtn" type="button" data-imv="${i}|1" title="تأخير"${i === imgs.length - 1 ? ' disabled' : ''}>${icon('chevron')}</button>
+            <button class="ibtn del" type="button" data-imd="${i}" title="حذف">${icon('trash')}</button>
+          </div>
+        </div>`).join('')
+      : `<div class="imgcell empty">${art(iconSel)}<span>لا صور — تُستخدم الرسمة</span></div>`;
+    const pend = imgs.filter(x => x.data).length;
+    $('#imgMeta').innerHTML = imgs.length
+      ? `${imgs.length} صورة${pend ? ` — <b>${pend} جديدة</b> تُرفع عند النشر` : ''}`
+      : 'لا توجد صور — تُستخدم الرسمة التوضيحية أدناه.';
+  };
+  drawImgs();
+
   $('#imgIn').onchange = async e => {
-    const f = e.target.files[0]; if(!f) return;
-    try{
-      imgData = await resizeImage(f, 900, .82);
-      imgNew = true;
-      $('#imgPrev').innerHTML = `<img src="${imgData}" alt="">`;
-      $('#imgMeta').innerHTML = `صورة جديدة جاهزة — <b>${Math.round(imgData.length * 0.75 / 1024)} كيلوبايت</b>. تُرفع عند النشر.`;
-      $('#imgDel').style.display = '';
-    }catch(err){ toast('تعذّرت قراءة الصورة', 'err'); }
+    const files = [...e.target.files]; if(!files.length) return;
+    for(const f of files){
+      if(imgs.length >= 8){ toast('الحد الأقصى ٨ صور للمادة', 'err'); break; }
+      try{ imgs.push({ path:'', data: await resizeImage(f, 900, .82) }); }
+      catch(err){ toast(`تعذّرت قراءة ${f.name}`, 'err'); }
+    }
+    e.target.value = '';
+    drawImgs();
   };
-  $('#imgDel').onclick = () => {
-    imgData = ''; imgPath = ''; imgNew = false;
-    $('#imgPrev').innerHTML = art(iconSel);
-    $('#imgMeta').textContent = 'لا توجد صورة — تُستخدم الرسمة التوضيحية.';
-    $('#imgDel').style.display = 'none';
+  $('#imgList').onclick = e => {
+    const del = e.target.closest('[data-imd]');
+    if(del){ imgs.splice(+del.dataset.imd, 1); drawImgs(); return; }
+    const mv = e.target.closest('[data-imv]');
+    if(mv){
+      const [i, d] = mv.dataset.imv.split('|').map(Number);
+      const j = i + d;
+      if(j < 0 || j >= imgs.length) return;
+      [imgs[i], imgs[j]] = [imgs[j], imgs[i]];
+      drawImgs();
+    }
   };
 
   $('#pSave').onclick = () => {
@@ -517,8 +556,23 @@ function productSheet(id){
     if(old > price) rec.old = old;
     const badge = $('#fg').value; if(badge) rec.badge = badge;
     const unit = $('#fu').value.trim(); if(unit && unit !== 'حبة') rec.unit = unit;
-    if(imgNew){ rec.imgData = imgData; rec.image = IMG_DIR + pid + '.jpg'; rec.imgNew = true; }
-    else if(imgPath){ rec.image = imgPath; if(imgData) rec.imgData = imgData; if(p.imgNew) rec.imgNew = true; }
+    /* كل صورة جديدة تأخذ مساراً ثابتاً: الأولى بالمعرّف، والبقية بلاحقة رقم.
+       image و imgData يبقيان مرآةً للأولى فلا تنكسر البطاقات ولا المعاينة. */
+    if(imgs.length){
+      const used = new Set(imgs.map(x => x.path).filter(Boolean));
+      rec.images = imgs.map((im, i) => {
+        if(im.path) return im.path;
+        let k = i, path;
+        do { path = IMG_DIR + pid + (k ? '-' + (k + 1) : '') + '.jpg'; k++; } while(used.has(path));
+        used.add(path);
+        return path;
+      });
+      rec.imgsData = imgs.map(x => x.data || '');
+      rec.image = rec.images[0];
+      if(rec.imgsData.some(Boolean)) rec.imgNew = true;
+      if(rec.imgsData[0]) rec.imgData = rec.imgsData[0];
+      if(!rec.imgsData.some(Boolean)) delete rec.imgsData;
+    }
 
     if(isNew) D.PRODUCTS.push(rec);
     else D.PRODUCTS[D.PRODUCTS.findIndex(x => x.id === p.id)] = rec;
@@ -976,7 +1030,7 @@ async function coordsFromMapUrl(url){
 
 /* ============ تبويب النشر ============ */
 function renderPublish(){
-  const pend = [...D.PRODUCTS.filter(p => p.imgNew && p.imgData),
+  const pend = [...D.PRODUCTS.filter(hasPendingImg),
                 ...D.BRANDS.filter(b => b.logoNew && b.logoData)];
   const tok = localStorage.getItem(TKEY) || '';
   const diff = countChanges();
@@ -1087,10 +1141,14 @@ function renderPublish(){
     new Blob([JSON.stringify(D, null, 2)], { type:'application/json' }));
   $('#dlBackup').onclick = doBackup;
   const qb = $('#quickBackup'); if(qb) qb.onclick = doBackup;
-  const di = $('#dlImgs'); if(di) di.onclick = () => pend.forEach((x, i) =>
-    setTimeout(() => x.imgData
-      ? download(x.id + '.jpg', dataUrlToBlob(x.imgData))
-      : download(slugFrom(x.name, []) + '.png', dataUrlToBlob(x.logoData)), i * 350));
+  const di = $('#dlImgs'); if(di) di.onclick = () => {
+    const files = [];
+    pend.forEach(x => {
+      if(x.logoData) files.push({ n: slugFrom(x.name, []) + '.png', d: x.logoData });
+      else pendingImgs(x).forEach(im => files.push({ n: im.path.split('/').pop(), d: im.data }));
+    });
+    files.forEach((f, i) => setTimeout(() => download(f.n, dataUrlToBlob(f.d)), i * 350));
+  };
   $('#upBackup').onchange = e => {
     const f = e.target.files[0]; if(!f) return;
     const fr = new FileReader();
@@ -1115,7 +1173,7 @@ function diffList(oldArr, newArr, keyOf, cleanOf){
 }
 function countChanges(){
   const p = diffList(PUB.PRODUCTS, D.PRODUCTS, x => x.id,
-    x => { const c = clone(x); delete c.imgData; delete c.imgNew; return c; });
+    x => { const c = clone(x); delete c.imgData; delete c.imgNew; delete c.imgsData; return c; });
   const b = diffList(PUB.BRANDS, D.BRANDS, x => x.name,
     x => { const c = clone(x); delete c.logoData; delete c.logoNew; return c; });
   const c = diffList(PUB.CATEGORIES, D.CATEGORIES, x => x.id);
@@ -1186,9 +1244,15 @@ async function publishToGitHub(){
 
   try{
     const jobs = [
-      ...D.PRODUCTS.filter(p => p.imgNew && p.imgData).map(p => ({
-        path: p.image || (IMG_DIR + p.id + '.jpg'), data: p.imgData, name: p.name,
-        msg: `رفع صورة المادة ${p.id}`, done: pth => { p.image = pth; delete p.imgNew; } })),
+      ...D.PRODUCTS.flatMap(p => pendingImgs(p).map(im => ({
+        path: im.path, data: im.data,
+        name: p.name + (im.i ? ` — صورة ${im.i + 1}` : ''),
+        msg: `رفع صورة المادة ${p.id}${im.i ? ' (' + (im.i + 1) + ')' : ''}`,
+        done: () => {
+          if(p.imgsData) p.imgsData[im.i] = '';
+          if(im.i === 0) delete p.imgData;
+          if(!(p.imgsData || []).some(Boolean)){ delete p.imgNew; delete p.imgsData; }
+        } }))),
       ...D.BRANDS.filter(b => b.logoNew && b.logoData).map(b => ({
         path: b.logo || (BRAND_DIR + slugFrom(b.name, []) + '.png'), data: b.logoData, name: 'شعار ' + b.name,
         msg: `رفع شعار ${b.name}`, done: pth => { b.logo = pth; delete b.logoNew; } }))
@@ -1204,7 +1268,7 @@ async function publishToGitHub(){
     say(`نُشر ملف البيانات بنجاح — <a href="${res.commit.html_url}" target="_blank" rel="noopener"><b>عرض التغيير على GitHub</b></a>`);
     say('سيُحدَّث الموقع تلقائياً خلال ثوانٍ عبر Vercel. حدّث صفحة المتجر للتأكد.');
 
-    D.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; });
+    D.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData; });
     D.BRANDS.forEach(b => { delete b.logoData; delete b.logoNew; });
     const sig = coreOf(D);
     localStorage.setItem(PKEY, sig);
@@ -1491,7 +1555,8 @@ async function runDiagnostics(){
     } else add('ملف المواد', 'فشل (' + r.status + ')', false);
   }catch(e){ add('ملف المواد', 'تعذّر الوصول', false); }
 
-  const withImg = [...D.PRODUCTS.filter(p => p.image).map(p => ({ name:p.name, image:p.image })),
+  const withImg = [...D.PRODUCTS.flatMap(p => (p.images && p.images.length ? p.images : (p.image ? [p.image] : []))
+      .map((im, i) => ({ name: p.name + (i ? ` — صورة ${i + 1}` : ''), image: im }))),
                    ...D.BRANDS.filter(b => b.logo).map(b => ({ name:'شعار ' + b.name, image:b.logo }))];
   if(!withImg.length) add('صور المنتجات', 'لا توجد مواد بصور بعد', true);
   for(const p of withImg){
