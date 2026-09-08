@@ -49,7 +49,8 @@ function markDirty(v = true){ dirty = v; document.body.classList.toggle('dirty',
 /* نص قياسي للمقارنة (بدون سطر التاريخ وبدون بيانات الصور المؤقتة) */
 function coreOf(d){
   const c = clone(d);
-  (c.PRODUCTS || []).forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData; });
+  (c.PRODUCTS || []).forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData;
+    (p.options || []).forEach(o => (o.values || []).forEach(v => { delete v.imgData; })); });
   (c.BRANDS || []).forEach(b => { delete b.logoData; delete b.logoNew; });
   return bodyOf(serializeData(c));
 }
@@ -199,6 +200,10 @@ function pendingImgs(p){
   const data  = p.imgsData || (p.imgData ? [p.imgData] : []);
   const out = [];
   paths.forEach((path, i) => { if(data[i]) out.push({ i, path, data:data[i] }); });
+  /* صور قيم الخيارات تُرفع بنفس الآلية */
+  (p.options || []).forEach(o => (o.values || []).forEach(v => {
+    if(v && v.image && v.imgData) out.push({ i:-1, path:v.image, data:v.imgData, ov:v });
+  }));
   return out;
 }
 function hasPendingImg(p){ return pendingImgs(p).length > 0; }
@@ -289,9 +294,22 @@ function serializeData(d){
     if(p.unit && p.unit !== 'حبة') tail.push(`unit: ${q(p.unit)}`);
     if(p.image) tail.push(`image: ${q(p.image)}`);
     if((p.images || []).length > 1) tail.push(`images: ${inlineArr(p.images)}`);
+    const OPT = (p.options || []).filter(o => o && o.id && (o.values || []).length);
     let s = `  { ${head}, ${nums.join(', ')}, ${tail.join(', ')},\n`;
     s += `    cats: ${inlineArr(p.cats)}, desc: ${q(p.desc || '')},\n`;
-    s += `    specs: ${inlineArr(p.specs || [])} }`;
+    s += `    specs: ${inlineArr(p.specs || [])}`;
+    if(OPT.length){
+      s += `,\n    options: [\n` + OPT.map(o =>
+        `      { id: ${q(o.id)}, name: ${q(o.name)}, type: ${q(o.type === 'color' ? 'color' : 'text')},\n`
+      + `        values: [\n` + o.values.map(v => {
+          const bits = [`label: ${q(v.label)}`];
+          if(v.swatch) bits.push(`swatch: ${q(v.swatch)}`);
+          if(v.image)  bits.push(`image: ${q(v.image)}`);
+          if(+v.price > 0) bits.push(`price: ${+v.price}`);
+          return `          { ${bits.join(', ')} }`;
+        }).join(',\n') + `\n        ] }`).join(',\n') + `\n    ]`;
+    }
+    s += ` }`;
     return s;
   }).join(',\n'));
   L.push('];');
@@ -300,7 +318,8 @@ function serializeData(d){
 }
 function exportData(){
   const d = clone(D);
-  d.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData; });
+  d.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData;
+    (p.options || []).forEach(o => (o.values || []).forEach(v => { delete v.imgData; })); });
   d.BRANDS.forEach(b => { delete b.logoData; delete b.logoNew; });
   return serializeData(d);
 }
@@ -415,6 +434,13 @@ function productSheet(id){
   let specs = (p.specs || []).slice();
   let cats = (p.cats || []).slice();
   let iconSel = p.icon || 'bulb';
+  /* الخيارات: أسماء حرّة من إدخال المستخدم، والمعرّف يُولَّد من الاسم */
+  let opts = (Array.isArray(p.options) ? p.options : []).map(o => ({
+    id: o.id, name: o.name || '', type: o.type === 'color' ? 'color' : 'text',
+    values: (o.values || []).map(v => ({ label:v.label || '', swatch:v.swatch || '',
+      image:v.image || '', imgData:v.imgData || '', price:v.price || 0 }))
+  }));
+
   /* صور المادة: مسارات + بيانات مسودّة موازية لها */
   let imgs = (Array.isArray(p.images) && p.images.length ? p.images.slice()
             : (p.image ? [p.image] : [])).map((path, i) => ({
@@ -469,6 +495,22 @@ function productSheet(id){
         </div>
       </div>
 
+      <div><h4 style="font-size:14px;margin-bottom:8px">الخيارات
+          <small style="color:var(--grey);font-weight:600">— اللون، القياس، الواط… أي اسم تكتبه</small></h4>
+        <div class="note note-info" style="margin-bottom:10px">${icon('bolt')}<span>السعر يتبع
+          <b>آخر قيمة مختارة تحمل سعراً</b> بترتيب الخيارات. اتركه فارغاً لتستعمل سعر المادة.</span></div>
+        <div id="optList"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <input type="text" id="optName" placeholder="اسم الخيار — مثل: اللون، القياس، طول الكيبل"
+                 style="flex:1;min-width:200px;padding:10px 14px;border-radius:var(--r-sm);border:1.5px solid var(--line);background:#fff">
+          <div class="sel"><select id="optType">
+            <option value="text">عرض نصّي</option>
+            <option value="color">مربّعات لونية</option>
+          </select>${icon('chevronDown')}</div>
+          <button class="btn btn-sm btn-tonal" type="button" id="optAdd">${icon('plus')}<span>إضافة خيار</span></button>
+        </div>
+      </div>
+
       <div><h4 style="font-size:14px;margin-bottom:8px">الرسمة التوضيحية <small style="color:var(--grey);font-weight:600">— تظهر إن لم توجد صورة</small></h4>
         <div class="iconpick" id="iconpick">${Object.keys(ART).map(k =>
           `<button type="button" data-ic="${k}" class="${k === iconSel ? 'on' : ''}">${art(k)}<i>${k}</i></button>`).join('')}</div>
@@ -494,6 +536,104 @@ function productSheet(id){
     $$('#iconpick button').forEach(x => x.classList.toggle('on', x === b));
     if(!imgs.length) drawImgs();
   };
+  /* معرّف مستقرّ من الاسم — عربي أو لاتيني — وفريد داخل المادة */
+  const optSlug = (name, taken) => {
+    const AR = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي';
+    const EN = ['a','b','t','th','j','h','kh','d','th','r','z','s','sh','s','d','t','th','a','gh','f','q','k','l','m','n','h','w','y'];
+    let base = String(name || '').trim().toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/[ة]/g,'ه').replace(/[ىئ]/g,'ي').replace(/[ؤ]/g,'و')
+      .split('').map(ch => {
+        const i = AR.indexOf(ch); if(i > -1) return EN[i];
+        return /[a-z0-9]/.test(ch) ? ch : (/\s|-|_/.test(ch) ? '-' : '');
+      }).join('').replace(/-+/g,'-').replace(/^-|-$/g,'');
+    if(!base) base = 'opt';
+    let id = base, n = 2;
+    while(taken.has(id)){ id = base + '-' + n++; }
+    return id;
+  };
+
+  const drawOpts = () => {
+    $('#optList').innerHTML = opts.map((o, oi) => `<div class="optbox" data-oi="${oi}">
+      <div class="optbox-h">
+        <b>${esc(o.name || 'خيار')}</b>
+        <code style="font-size:11px;color:var(--grey-2)">${esc(o.id)}</code>
+        <span class="optbadge">${o.type === 'color' ? 'لوني' : 'نصّي'}</span>
+        <button class="ibtn" type="button" data-omv="${oi}|-1" title="تقديم"${oi ? '' : ' disabled'}>${icon('chevron')}</button>
+        <button class="ibtn" type="button" data-omv="${oi}|1" title="تأخير"${oi === opts.length - 1 ? ' disabled' : ''}>${icon('chevron')}</button>
+        <button class="ibtn del" type="button" data-od="${oi}" title="حذف الخيار">${icon('trash')}</button>
+      </div>
+      <div class="optvals">
+        ${o.values.map((v, vi) => `<div class="optval" data-vi="${vi}">
+          ${o.type === 'color'
+            ? `<input type="color" data-vf="swatch" value="${esc(v.swatch || '#cccccc')}" title="اللون">`
+            : ''}
+          <input type="text" data-vf="label" value="${esc(v.label)}" placeholder="القيمة">
+          <input type="text" data-vf="price" value="${v.price ? v.price : ''}" inputmode="numeric" placeholder="سعر (اختياري)">
+          <label class="btn btn-sm ${v.image || v.imgData ? 'btn-tonal' : 'btn-ghost'}" title="صورة القيمة">
+            ${icon('box')}<span>${v.image || v.imgData ? 'تغيير' : 'صورة'}</span>
+            <input type="file" accept="image/*" data-vimg="${oi}|${vi}" hidden></label>
+          ${v.image || v.imgData ? `<span class="optthumb"><img src="${esc(v.imgData || assetUrl(v.image))}" alt=""></span>` : ''}
+          <button class="ibtn del" type="button" data-vd="${oi}|${vi}" title="حذف القيمة">${icon('trash')}</button>
+        </div>`).join('')}
+      </div>
+      <button class="btn btn-sm btn-ghost" type="button" data-va="${oi}">${icon('plus')}<span>إضافة قيمة</span></button>
+    </div>`).join('') || '<p style="color:var(--grey);font-size:13px">لا خيارات — المادة تُباع بشكل واحد.</p>';
+  };
+  /* نقرأ الحقول قبل أي إعادة رسم حتى لا يضيع ما كُتب */
+  const readOptFields = () => {
+    $$('#optList .optbox').forEach(box => {
+      const o = opts[+box.dataset.oi]; if(!o) return;
+      $$('.optval', box).forEach(row => {
+        const v = o.values[+row.dataset.vi]; if(!v) return;
+        const get = k => { const el = row.querySelector(`[data-vf="${k}"]`); return el ? el.value : ''; };
+        v.label = get('label').trim();
+        v.price = +String(get('price')).replace(/\D/g, '') || 0;
+        if(o.type === 'color') v.swatch = get('swatch') || v.swatch;
+      });
+    });
+  };
+  drawOpts();
+
+  $('#optAdd').onclick = () => {
+    const name = $('#optName').value.trim();
+    if(!name){ toast('اكتب اسم الخيار', 'err'); return; }
+    readOptFields();
+    const type = $('#optType').value === 'color' ? 'color' : 'text';
+    opts.push({ id: optSlug(name, new Set(opts.map(x => x.id))), name, type,
+                values: [{ label:'', swatch: type === 'color' ? '#cccccc' : '', image:'', imgData:'', price:0 }] });
+    $('#optName').value = '';
+    drawOpts();
+  };
+  $('#optList').onclick = e => {
+    const del = e.target.closest('[data-od]');
+    if(del){ readOptFields(); opts.splice(+del.dataset.od, 1); drawOpts(); return; }
+    const mv = e.target.closest('[data-omv]');
+    if(mv){ readOptFields();
+      const [i, d] = mv.dataset.omv.split('|').map(Number), j = i + d;
+      if(j < 0 || j >= opts.length) return;
+      [opts[i], opts[j]] = [opts[j], opts[i]]; drawOpts(); return; }
+    const va = e.target.closest('[data-va]');
+    if(va){ readOptFields();
+      const o = opts[+va.dataset.va];
+      o.values.push({ label:'', swatch: o.type === 'color' ? '#cccccc' : '', image:'', imgData:'', price:0 });
+      drawOpts(); return; }
+    const vd = e.target.closest('[data-vd]');
+    if(vd){ readOptFields();
+      const [oi, vi] = vd.dataset.vd.split('|').map(Number);
+      opts[oi].values.splice(vi, 1);
+      if(!opts[oi].values.length) opts.splice(oi, 1);
+      drawOpts(); return; }
+  };
+  $('#optList').onchange = async e => {
+    const f = e.target.closest('[data-vimg]');
+    if(!f || !f.files[0]) return;
+    readOptFields();
+    const [oi, vi] = f.dataset.vimg.split('|').map(Number);
+    try{ opts[oi].values[vi].imgData = await resizeImage(f.files[0], 900, .82); }
+    catch(err){ toast('تعذّرت قراءة الصورة', 'err'); }
+    drawOpts();
+  };
+
   const drawImgs = () => {
     $('#imgList').innerHTML = imgs.length
       ? imgs.map((im, i) => `<div class="imgcell${i ? '' : ' main'}" data-imi="${i}">
@@ -558,6 +698,23 @@ function productSheet(id){
     const unit = $('#fu').value.trim(); if(unit && unit !== 'حبة') rec.unit = unit;
     /* كل صورة جديدة تأخذ مساراً ثابتاً: الأولى بالمعرّف، والبقية بلاحقة رقم.
        image و imgData يبقيان مرآةً للأولى فلا تنكسر البطاقات ولا المعاينة. */
+    /* الخيارات: تُحفظ القيم ذات label فقط، وصور القيم تأخذ مسارات ثابتة */
+    readOptFields();
+    const clean = opts.map(o => ({ ...o, values: o.values.filter(v => v.label) }))
+                      .filter(o => o.name && o.values.length);
+    if(clean.length){
+      let n = 0;
+      clean.forEach(o => o.values.forEach(v => {
+        if(v.imgData && !v.image) v.image = IMG_DIR + pid + '-o' + (++n) + '.jpg';
+        else if(v.image) n = Math.max(n, +(String(v.image).match(/-o(\d+)\.jpg$/) || [0, 0])[1]);
+        if(o.type !== 'color') delete v.swatch;
+        if(!v.price) delete v.price;
+        if(!v.image) delete v.image;
+        if(!v.imgData) delete v.imgData;
+      }));
+      rec.options = clean;
+    }
+
     if(imgs.length){
       const used = new Set(imgs.map(x => x.path).filter(Boolean));
       rec.images = imgs.map((im, i) => {
@@ -1173,7 +1330,8 @@ function diffList(oldArr, newArr, keyOf, cleanOf){
 }
 function countChanges(){
   const p = diffList(PUB.PRODUCTS, D.PRODUCTS, x => x.id,
-    x => { const c = clone(x); delete c.imgData; delete c.imgNew; delete c.imgsData; return c; });
+    x => { const c = clone(x); delete c.imgData; delete c.imgNew; delete c.imgsData;
+           (c.options || []).forEach(o => (o.values || []).forEach(v => { delete v.imgData; })); return c; });
   const b = diffList(PUB.BRANDS, D.BRANDS, x => x.name,
     x => { const c = clone(x); delete c.logoData; delete c.logoNew; return c; });
   const c = diffList(PUB.CATEGORIES, D.CATEGORIES, x => x.id);
@@ -1249,6 +1407,7 @@ async function publishToGitHub(){
         name: p.name + (im.i ? ` — صورة ${im.i + 1}` : ''),
         msg: `رفع صورة المادة ${p.id}${im.i ? ' (' + (im.i + 1) + ')' : ''}`,
         done: () => {
+          if(im.ov){ delete im.ov.imgData; return; }
           if(p.imgsData) p.imgsData[im.i] = '';
           if(im.i === 0) delete p.imgData;
           if(!(p.imgsData || []).some(Boolean)){ delete p.imgNew; delete p.imgsData; }
@@ -1268,7 +1427,8 @@ async function publishToGitHub(){
     say(`نُشر ملف البيانات بنجاح — <a href="${res.commit.html_url}" target="_blank" rel="noopener"><b>عرض التغيير على GitHub</b></a>`);
     say('سيُحدَّث الموقع تلقائياً خلال ثوانٍ عبر Vercel. حدّث صفحة المتجر للتأكد.');
 
-    D.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData; });
+    D.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData;
+    (p.options || []).forEach(o => (o.values || []).forEach(v => { delete v.imgData; })); });
     D.BRANDS.forEach(b => { delete b.logoData; delete b.logoNew; });
     const sig = coreOf(D);
     localStorage.setItem(PKEY, sig);
@@ -1555,8 +1715,11 @@ async function runDiagnostics(){
     } else add('ملف المواد', 'فشل (' + r.status + ')', false);
   }catch(e){ add('ملف المواد', 'تعذّر الوصول', false); }
 
-  const withImg = [...D.PRODUCTS.flatMap(p => (p.images && p.images.length ? p.images : (p.image ? [p.image] : []))
-      .map((im, i) => ({ name: p.name + (i ? ` — صورة ${i + 1}` : ''), image: im }))),
+  const withImg = [...D.PRODUCTS.flatMap(p => [
+      ...(p.images && p.images.length ? p.images : (p.image ? [p.image] : []))
+        .map((im, i) => ({ name: p.name + (i ? ` — صورة ${i + 1}` : ''), image: im })),
+      ...(p.options || []).flatMap(o => (o.values || []).filter(v => v.image)
+        .map(v => ({ name: `${p.name} — ${o.name}: ${v.label}`, image: v.image })))]),
                    ...D.BRANDS.filter(b => b.logo).map(b => ({ name:'شعار ' + b.name, image:b.logo }))];
   if(!withImg.length) add('صور المنتجات', 'لا توجد مواد بصور بعد', true);
   for(const p of withImg){
@@ -1783,7 +1946,9 @@ function orderSheet(id){
         ${o.customer?.note ? `<div class="sum"><span>ملاحظات الزبون</span><b style="text-align:end;max-width:60%">${esc(o.customer.note)}</b></div>` : ''}
       </div></div>
       <div class="panel" style="box-shadow:none"><div class="panel-b">
-        ${(o.items || []).map(it => `<div class="sum"><span>${esc(it.name)} <small style="color:var(--grey-2)">× ${it.q}</small></span><b>${money(it.total)}</b></div>`).join('')}
+        ${(o.items || []).map(it => `<div class="sum"><span>${esc(it.name)}
+          ${it.opts ? `<small style="color:var(--brand-700);display:block">${esc(it.opts)}</small>` : ''}
+          <small style="color:var(--grey-2)">× ${it.q}</small></span><b>${money(it.total)}</b></div>`).join('')}
         <div class="sum"><span>المجموع الفرعي</span><b>${money(o.subtotal)}</b></div>
         <div class="sum"><span>التوصيل</span><b>${o.fee ? money(o.fee) : 'مجاني'}</b></div>
         <div class="sum total"><span>الإجمالي</span><b>${money(o.total)} ${SITE.currency}</b></div>

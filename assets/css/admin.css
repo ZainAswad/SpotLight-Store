@@ -232,3 +232,29 @@ details summary::-webkit-details-marker{display:none}
 .imgcell-act .ibtn[disabled]{opacity:.3;pointer-events:none}
 .imgcell-act .ibtn.del:hover{background:var(--brand);color:#fff}
 .imgcell-act [data-imv$="|1"] .ic{transform:scaleX(-1)}
+
+/* محرّر خيارات المادة */
+.optbox{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px 14px;margin-bottom:10px}
+.optbox-h{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.optbox-h b{font-size:14px;font-weight:800;color:var(--ink)}
+.optbox-h .ibtn{width:28px;height:28px}
+.optbox-h .ibtn .ic{width:15px;height:15px}
+.optbox-h [data-omv$="|1"] .ic{transform:scaleX(-1)}
+.optbox-h .ibtn[disabled]{opacity:.3;pointer-events:none}
+.optbox-h .ibtn.del{margin-inline-start:auto}
+.optbadge{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:var(--r-pill);
+  background:var(--navy);color:#fff}
+.optval{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:7px;
+  background:#fff;border:1px solid var(--line-2);border-radius:var(--r-sm);padding:7px 9px}
+.optval input[type=text]{flex:1;min-width:96px;padding:7px 10px;border-radius:var(--r-xs);
+  border:1.5px solid var(--line);background:#fff;font-size:13px}
+.optval input[type=text][data-vf=price]{flex:0 0 118px;min-width:96px}
+.optval input[type=color]{width:34px;height:32px;padding:2px;border:1.5px solid var(--line);
+  border-radius:var(--r-xs);background:#fff;cursor:pointer;flex:none}
+.optval .btn{flex:none}
+.optval .ibtn{width:28px;height:28px;flex:none}
+.optval .ibtn .ic{width:15px;height:15px}
+.optthumb{width:34px;height:34px;border-radius:var(--r-xs);overflow:hidden;flex:none;
+  border:1px solid var(--line);background:var(--surface-2)}
+.optthumb img{width:100%;height:100%;object-fit:cover}

@@ -17,6 +17,63 @@ let PREVIEW = false;
   }catch(e){}
 })();
 
+/* ================= خيارات المنتج =================
+   options اختيارية تماماً: منتج بلا options يسلك كما كان حرفياً.
+   أسماء الخيارات حرّة من إدخال صاحب المحل، و type طريقة عرض فقط. */
+function optList(p){
+  return (Array.isArray(p && p.options) ? p.options : [])
+    .filter(o => o && o.id && Array.isArray(o.values) && o.values.length);
+}
+function optValue(o, label){
+  return (o.values || []).find(v => v && v.label === label) || null;
+}
+/* أول قيمة من كل خيار — حتى لا يُمنع الزبون من الشراء */
+function defaultOpts(p){
+  const out = {};
+  optList(p).forEach(o => { out[o.id] = o.values[0].label; });
+  return Object.keys(out).length ? out : null;
+}
+/* السعر: تُفحص القيم بترتيب الخيارات، وآخر قيمة تحمل سعراً هي الحاكمة */
+function optPrice(p, opts){
+  let price = p.price;
+  if(!opts) return price;
+  optList(p).forEach(o => {
+    const v = optValue(o, opts[o.id]);
+    if(v && typeof v.price === 'number' && v.price > 0) price = v.price;
+  });
+  return price;
+}
+/* الصورة: آخر قيمة مختارة تحمل صورة */
+function optImage(p, opts){
+  let img = '';
+  if(!opts) return img;
+  optList(p).forEach(o => {
+    const v = optValue(o, opts[o.id]);
+    if(v && v.image) img = v.image;
+  });
+  return img;
+}
+/* بيانات مسودّة صورة خيار (قبل النشر من لوحة التحكم) */
+function optDraft(p, path){
+  let d = '';
+  optList(p).forEach(o => o.values.forEach(v => { if(v && v.image === path && v.imgData) d = v.imgData; }));
+  return d;
+}
+/* نص مقروء: «اللون: أزرق · القياس: 80 سم» */
+function optsText(p, opts){
+  if(!opts) return '';
+  return optList(p).map(o => opts[o.id] ? `${o.name}: ${opts[o.id]}` : '').filter(Boolean).join(' · ');
+}
+/* مفتاح سطر السلة — نفس المادة بخيارات مختلفة = سطور منفصلة.
+   السلال القديمة { id, q } بلا opts تعطي المفتاح = المعرّف نفسه فلا تنكسر. */
+function lineKey(id, opts){
+  if(!opts || typeof opts !== 'object') return id;
+  const parts = Object.keys(opts).sort()
+    .filter(k => opts[k] !== '' && opts[k] != null)
+    .map(k => k + '=' + opts[k]);
+  return parts.length ? id + '|' + parts.join('|') : id;
+}
+
 const store = {
   cart: [],   // [{id, q}]
   fav:  [],   // [id]
@@ -33,25 +90,37 @@ const store = {
   },
 
   /* --- السلة --- */
-  add(id, q = 1){
+  keyOf(l){ return lineKey(l.id, l.opts); },
+  add(id, q = 1, opts){
     const p = byId(id); if(!p) return;
-    const line = this.cart.find(l => l.id === id);
-    if(line) line.q = Math.min(999, line.q + q); else this.cart.push({ id, q });
+    const key = lineKey(id, opts);
+    const line = this.cart.find(l => this.keyOf(l) === key);
+    if(line) line.q = Math.min(999, line.q + q);
+    else this.cart.push(opts && Object.keys(opts).length ? { id, q, opts } : { id, q });
     this.save();
-    toast(`تمت إضافة «${p.name}» إلى السلة`, 'ok');
+    const t = optsText(p, opts);
+    toast(`تمت إضافة «${p.name}»${t ? ` (${t})` : ''} إلى السلة`, 'ok');
   },
-  setQty(id, q){
-    const line = this.cart.find(l => l.id === id); if(!line) return;
+  setQty(key, q){
+    const line = this.cart.find(l => this.keyOf(l) === key); if(!line) return;
     line.q = Math.max(1, Math.min(999, q)); this.save();
   },
-  remove(id){
-    this.cart = this.cart.filter(l => l.id !== id); this.save();
+  remove(key){
+    this.cart = this.cart.filter(l => this.keyOf(l) !== key); this.save();
   },
   clearCart(){ this.cart = []; this.save(); },
-  qtyOf(id){ const l = this.cart.find(l => l.id === id); return l ? l.q : 0; },
+  qtyOf(key){ const l = this.cart.find(l => this.keyOf(l) === key); return l ? l.q : 0; },
   get count(){ return this.cart.reduce((n, l) => n + l.q, 0); },
   get lines(){
-    return this.cart.map(l => { const p = byId(l.id); return p ? { ...p, q:l.q, total:p.price * l.q } : null; }).filter(Boolean);
+    return this.cart.map(l => {
+      const p = byId(l.id); if(!p) return null;
+      const opts  = l.opts && Object.keys(l.opts).length ? l.opts : null;
+      const price = optPrice(p, opts);
+      const oimg  = optImage(p, opts);
+      return { ...p, q:l.q, opts, key:this.keyOf(l), price, total: price * l.q,
+               optsText: optsText(p, opts),
+               ...(oimg ? { image:oimg, imgData: optDraft(p, oimg) } : {}) };
+    }).filter(Boolean);
   },
   get subtotal(){ return this.lines.reduce((s, l) => s + l.total, 0); },
   get savings(){
@@ -92,7 +161,8 @@ const store = {
       at: Date.now(),
       status: 'pending',
       customer, method, payment, branch: branch || '',
-      items: lines.map(l => ({ id:l.id, name:l.name, brand:l.brand, price:l.price, q:l.q, unit:l.unit || 'حبة', total:l.total })),
+      items: lines.map(l => ({ id:l.id, name:l.name, brand:l.brand, price:l.price, q:l.q,
+        unit:l.unit || 'حبة', opts:l.optsText || '', total:l.total })),
       subtotal: sub, fee, total: sub + fee,
       adminNote: ''
     };
@@ -198,7 +268,7 @@ function orderText(o){
   L.push(`الاستلام: ${o.method === 'pickup' ? 'استلام من المحل' + (o.branch ? ' — ' + o.branch : '') : 'توصيل إلى العنوان'}`);
   L.push('');
   L.push('*المواد*');
-  o.items.forEach((it, i) => L.push(`${i + 1}. ${it.name} — ${it.q} ${it.unit} × ${money(it.price)} = ${money(it.total)} ${SITE.currency}`));
+  o.items.forEach((it, i) => L.push(`${i + 1}. ${it.name}${it.opts ? ` (${it.opts})` : ''} — ${it.q} ${it.unit} × ${money(it.price)} = ${money(it.total)} ${SITE.currency}`));
   L.push('');
   L.push(`المجموع: ${money(o.subtotal)} ${SITE.currency}`);
   L.push(`التوصيل: ${o.fee ? money(o.fee) + ' ' + SITE.currency : 'مجاناً'}`);

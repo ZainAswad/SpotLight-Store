@@ -85,12 +85,20 @@ function media(p, cls){
 /* ---------- معرض صور المنتج ----------
    images مصفوفة المسارات، و image يبقى الصورة الأساسية للبطاقات والمشاركة.
    imgsData تحمل صور المسودّة قبل نشرها (من لوحة التحكم فقط). */
-function gallery(p){
-  const paths = Array.isArray(p.images) && p.images.length
-    ? p.images
+/* قائمة صور المعرض: صور المادة ثم صور الخيارات، مرتّبة وبلا تكرار */
+function galleryList(p){
+  const base = Array.isArray(p.images) && p.images.length
+    ? p.images.slice()
     : (p.image ? [p.image] : []);
+  optList(p).forEach(o => o.values.forEach(v => {
+    if(v && v.image && !base.includes(v.image)) base.push(v.image);
+  }));
+  return base;
+}
+function gallery(p){
+  const paths = galleryList(p);
   const draft = Array.isArray(p.imgsData) ? p.imgsData : [];
-  const out = paths.map((path, i) => ({ src: draft[i] || assetUrl(path), path }));
+  const out = paths.map((path, i) => ({ src: draft[i] || optDraft(p, path) || assetUrl(path), path }));
   if(!out.length && p.imgData) out.push({ src:p.imgData, path:'' });
   return out;
 }
@@ -118,6 +126,47 @@ function galleryHTML(p, cls){
   </div>`;
 }
 
+/* نقاط ملوّنة صغيرة على البطاقة إن كان للمادة خيار لون */
+/* منتقي الخيارات — أزرار حقيقية فتعمل باللمس والفأرة ولوحة المفاتيح.
+   الحالة تُقرأ من الـDOM لا من متغيّر موازٍ، فلا تتعارض نسختان. */
+function optsHTML(p){
+  const list = optList(p);
+  if(!list.length) return '';
+  return `<div class="opts" data-opts="${esc(p.id)}">
+    ${list.map(o => `<div class="opt" data-opt="${esc(o.id)}" data-name="${esc(o.name)}">
+      <h4>${esc(o.name)} <span class="opt-cur">${esc(o.values[0].label)}</span></h4>
+      <div class="opt-vals" role="group" aria-label="${esc(o.name)}">
+        ${o.values.map((v, i) => o.type === 'color'
+          ? `<button type="button" class="sw${i ? '' : ' on'}" data-ov data-ol="${esc(v.label)}"
+               style="--sw:${esc(v.swatch || '#CCC')}" title="${esc(v.label)}"
+               aria-label="${esc(v.label)}" aria-pressed="${i ? 'false' : 'true'}"></button>`
+          : `<button type="button" class="ov${i ? '' : ' on'}" data-ov data-ol="${esc(v.label)}"
+               aria-pressed="${i ? 'false' : 'true'}">${esc(v.label)}</button>`).join('')}
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+/* الخيارات المختارة حالياً من الصفحة */
+function readOpts(root){
+  const box = $('[data-opts]', root || document);
+  if(!box) return null;
+  const o = {};
+  $$('.opt', box).forEach(el => {
+    const on = $('[data-ov].on', el);
+    if(on) o[el.dataset.opt] = on.dataset.ol;
+  });
+  return Object.keys(o).length ? o : null;
+}
+
+function colorDots(p){
+  const o = optList(p).find(x => x.type === 'color');
+  if(!o) return '';
+  const show = o.values.slice(0, 5), more = o.values.length - show.length;
+  return `<span class="cdots" aria-label="${esc(o.name)}: ${o.values.length} خيارات">
+    ${show.map(v => `<i style="--sw:${esc(v.swatch || '#CCC')}" title="${esc(v.label)}"></i>`).join('')}
+    ${more > 0 ? `<b>+${more}</b>` : ''}</span>`;
+}
+
 function subLabel(p){
   const s = subInfo(p.cats[0]);
   return s ? s.name : '';
@@ -141,6 +190,7 @@ function card(p){
       <span class="card-brand">${esc(p.brand)}</span>
       <a class="card-name" href="#/p/${p.id}">${esc(p.name)}</a>
       <span class="card-cat">${esc(subLabel(p))}</span>
+      ${colorDots(p)}
       <div class="price-row">
         <span class="price">${priceHTML(p.price)}</span>
         ${p.old ? `<span class="old">${money(p.old)}</span>` : ''}
@@ -372,10 +422,11 @@ function viewProduct(id){
         <span class="card-brand">${esc(p.brand)} · ${esc(p.id)}</span>
         <h3>${esc(p.name)}</h3>
         <div class="price-row">
-          <span class="price" style="font-size:26px">${priceHTML(p.price)}</span>
+          <span class="price" id="pPrice" style="font-size:26px">${priceHTML(optPrice(p, defaultOpts(p)))}</span>
           ${p.old ? `<span class="old">${money(p.old)}</span><span class="off">وفّر ${off}%</span>` : ''}
           <span class="card-cat">/ ${esc(p.unit || 'حبة')}</span>
         </div>
+        ${optsHTML(p)}
         <p class="desc">${esc(p.desc)}</p>
         <ul class="specs">${(p.specs || []).map(x => `<li>${icon('check')}<span>${esc(x)}</span></li>`).join('')}</ul>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px">
@@ -408,16 +459,17 @@ function viewCart(){
       <button class="btn btn-sm btn-danger" data-clear>${icon('trash')}<span>إفراغ السلة</span></button></div>
     <div class="cart-wrap">
       <div class="panel" id="cartList">
-        ${lines.map(l => `<div class="crow" data-line="${l.id}">
+        ${lines.map(l => `<div class="crow" data-line="${esc(l.key)}">
           <div class="thumb">${media(l)}</div>
           <div class="info">
             <a href="#/p/${l.id}"><b>${esc(l.name)}</b></a>
+            ${l.optsText ? `<span class="line-opts">${esc(l.optsText)}</span>` : ''}
             <small>${esc(l.brand)} · ${priceHTML(l.price)} / ${esc(l.unit || 'حبة')}</small>
           </div>
-          <div class="qty"><button data-dec="${l.id}" aria-label="إنقاص">${icon('minus')}</button>
-            <span>${l.q}</span><button data-inc="${l.id}" aria-label="زيادة">${icon('plus')}</button></div>
+          <div class="qty"><button data-dec="${esc(l.key)}" aria-label="إنقاص">${icon('minus')}</button>
+            <span>${l.q}</span><button data-inc="${esc(l.key)}" aria-label="زيادة">${icon('plus')}</button></div>
           <span class="line-total">${priceHTML(l.total)}</span>
-          <button class="ibtn" data-del="${l.id}" aria-label="حذف">${icon('trash')}</button>
+          <button class="ibtn" data-del="${esc(l.key)}" aria-label="حذف">${icon('trash')}</button>
         </div>`).join('')}
       </div>
       <div class="panel">
@@ -519,6 +571,7 @@ function viewCheckout(){
           ${lines.map(l => `<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-2)">
             <div class="thumb" style="width:46px;height:46px;border-radius:var(--r-xs);background:var(--brand-50);display:grid;place-items:center;overflow:hidden">${media(l)}</div>
             <div style="flex:1;min-width:0"><b style="font-size:13px;display:block">${esc(l.name)}</b>
+              ${l.optsText ? `<small style="color:var(--brand-700);font-size:11px;display:block">${esc(l.optsText)}</small>` : ''}
               <small style="color:var(--grey);font-size:11.5px">${l.q} × ${money(l.price)}</small></div>
             <b style="font-size:13.5px;white-space:nowrap">${money(l.total)}</b></div>`).join('')}
           <div class="sum" style="margin-top:10px"><span>المجموع الفرعي</span><b>${priceHTML(sub)}</b></div>
@@ -572,7 +625,9 @@ function viewOrder(id){
       </div>
       <div class="panel-b">
         <h3 style="font-size:16px;margin-bottom:12px">تفاصيل الطلب</h3>
-        ${o.items.map(it => `<div class="sum"><span>${esc(it.name)} <small style="color:var(--grey-2)">× ${it.q}</small></span><b>${money(it.total)}</b></div>`).join('')}
+        ${o.items.map(it => `<div class="sum"><span>${esc(it.name)}
+          ${it.opts ? `<small style="color:var(--brand-700);display:block">${esc(it.opts)}</small>` : ''}
+          <small style="color:var(--grey-2)">× ${it.q}</small></span><b>${money(it.total)}</b></div>`).join('')}
         <div class="sum"><span>المجموع الفرعي</span><b>${priceHTML(o.subtotal)}</b></div>
         <div class="sum"><span>التوصيل (${o.method === 'pickup'
           ? 'استلام من المحل' + (o.branch ? ' — ' + esc(o.branch) : '') : esc(o.customer.gov)})</span>
@@ -951,11 +1006,40 @@ function bindGlobal(){
     const t = e.target;
 
     /* إضافة للسلة */
+    /* اختيار قيمة خيار */
+    const ov = t.closest('[data-ov]');
+    if(ov){
+      const opt = ov.closest('.opt'), box = ov.closest('[data-opts]');
+      $$('[data-ov]', opt).forEach(b => {
+        const on = b === ov;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      const cur = $('.opt-cur', opt); if(cur) cur.textContent = ov.dataset.ol;
+      const p = byId(box.dataset.opts);
+      if(p){
+        const opts = readOpts();
+        const pr = $('#pPrice'); if(pr) pr.innerHTML = priceHTML(optPrice(p, opts));
+        /* الصورة: المعرض يقفز إلى صورة القيمة المختارة */
+        const o = optList(p).find(x => x.id === opt.dataset.opt);
+        const v = o ? optValue(o, ov.dataset.ol) : null;
+        if(v && v.image){
+          const i = galleryList(p).indexOf(v.image);
+          const track = $('.gal-track');
+          if(i > -1 && track){
+            const rtl = getComputedStyle(track.closest('[data-gal]')).direction === 'rtl';
+            track.scrollTo({ left: (rtl ? -1 : 1) * i * track.clientWidth, behavior:'smooth' });
+          }
+        }
+      }
+      return;
+    }
+
     const add = t.closest('[data-add]');
     if(add){
       const useQty = add.hasAttribute('data-useqty');
       const q = useQty ? (parseInt($('#pq')?.textContent, 10) || 1) : 1;
-      store.add(add.dataset.add, q);
+      store.add(add.dataset.add, q, readOpts());
       return;
     }
     /* المفضلة */
@@ -978,7 +1062,10 @@ function bindGlobal(){
     }
     /* السلة */
     const inc = t.closest('[data-inc]'); if(inc){ store.setQty(inc.dataset.inc, store.qtyOf(inc.dataset.inc) + 1); render(); return; }
-    const dec = t.closest('[data-dec]'); if(dec){ store.setQty(dec.dataset.dec, store.qtyOf(dec.dataset.dec) - 1); render(); return; }
+    const dec = t.closest('[data-dec]'); if(dec){
+      const k = dec.dataset.dec, q = store.qtyOf(k);
+      if(q <= 1){ store.remove(k); } else { store.setQty(k, q - 1); }
+      render(); return; }
     const del = t.closest('[data-del]');
     if(del){
       const row = del.closest('.crow'); row.classList.add('out');

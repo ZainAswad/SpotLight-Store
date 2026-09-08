@@ -635,6 +635,35 @@ html[dir=rtl] .sel select{padding:8px 13px 8px 32px}
   transition:background var(--t) var(--ease),color var(--t) var(--ease)}
 .qv-cats a:hover{background:var(--brand);color:#fff}
 
+/* --- خيارات المنتج --- */
+.opts{display:grid;gap:16px;margin:18px 0 4px}
+.opt h4{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:800;
+  color:var(--ink);margin-bottom:9px}
+.opt-cur{font-weight:600;color:var(--grey);font-size:12.5px}
+.opt-vals{display:flex;gap:8px;flex-wrap:wrap}
+.opt-vals .ov{padding:8px 15px;border-radius:var(--r-sm);border:1.5px solid var(--line);
+  background:var(--surface);font-size:13.5px;font-weight:600;color:var(--ink-2);
+  transition:border-color var(--t) var(--ease),color var(--t) var(--ease),
+             background var(--t) var(--ease),transform var(--t) var(--ease)}
+.opt-vals .ov:hover{border-color:var(--ink-2);color:var(--ink)}
+.opt-vals .ov.on{border-color:var(--brand);background:var(--brand-50);color:var(--brand-800);
+  box-shadow:inset 0 0 0 1px var(--brand)}
+.opt-vals .sw{width:38px;height:38px;border-radius:var(--r-pill);background:var(--sw,#ccc);
+  border:1.5px solid var(--line);position:relative;
+  transition:transform var(--t) var(--ease),box-shadow var(--t) var(--ease)}
+.opt-vals .sw:hover{transform:scale(1.08)}
+.opt-vals .sw.on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--brand);transform:scale(1.05)}
+.opt-vals .ov:focus-visible,.opt-vals .sw:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+
+/* نقاط الألوان على بطاقة القائمة */
+.cdots{display:flex;align-items:center;gap:4px;margin-top:1px}
+.cdots i{width:11px;height:11px;border-radius:var(--r-pill);background:var(--sw,#ccc);
+  border:1px solid rgba(20,26,46,.16);flex:none}
+.cdots b{font-size:10.5px;font-weight:700;color:var(--grey-2)}
+
+/* الخيارات المختارة داخل سطر السلة */
+.line-opts{display:block;font-size:11.5px;font-weight:700;color:var(--brand-700);margin:2px 0}
+
 /* --- معرض صور المنتج: صفح بالتمرير والالتقاط --- */
 .gal{position:relative;display:block;padding:0!important;overflow:hidden}
 .qv-media>img{max-height:100%;object-fit:contain}
