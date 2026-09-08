@@ -1,6 +1,6 @@
 /* =============================================================
    لتجارة المواد الكهربائية
-   ملف البيانات — وُلّد من لوحة التحكم بتاريخ ٩‏/٩‏/٢٠٢٦، ١٢:٠٨:٤٤ ص
+   ملف البيانات — وُلّد من لوحة التحكم بتاريخ ٩‏/٩‏/٢٠٢٦، ١٢:١٧:٠٣ ص
    يمكن تعديله يدوياً أيضاً، أو من admin.html
    ============================================================= */
 
@@ -167,5 +167,15 @@ let PRODUCTS = [
     specs: ['للاختبار فقط', 'يُحذف لاحقاً'] },
   { id: '1945', name: 'مروحة سقف هافلز', brand: 'Havells', price: 165000, icon: 'bulb', unit: 'قطعة', image: 'assets/img/products/1945.jpg', images: ['assets/img/products/1945.jpg', 'assets/img/products/1945-2.jpg'],
     cats: ['electrical/fans'], desc: '',
-    specs: ['ثلاث ريش', 'تحكم ريمونت', 'ضمان 3 سنوات'] }
+    specs: ['ثلاث ريش', 'تحكم ريمونت', 'ضمان 3 سنوات'] },
+  { id: '9903', name: 'ثريا ماريا تيريزا', brand: 'Spotlight', price: 150000, icon: 'bulb', badge: 'new', image: 'assets/img/products/9903.jpg', images: ['assets/img/products/9903.jpg', 'assets/img/products/9903-2.jpg'],
+    cats: ['lighting/ceiling'], desc: '',
+    specs: ['12 مصباح', '15 مصباح', '20 مصباح'],
+    options: [
+      { id: 'alqyas', name: 'القياس', type: 'text',
+        values: [
+          { label: '80 سم', image: 'assets/img/products/9903-o1.jpg', price: 150000 },
+          { label: '120 سم', image: 'assets/img/products/9903-o2.jpg', price: 185000 }
+        ] }
+    ] }
 ];
