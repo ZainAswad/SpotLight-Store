@@ -828,7 +828,7 @@ html[dir=rtl] .footer a:not(.soc):not(.btn):hover{transform:translateX(-4px)}
 }
 
 /* ---------- 21) ألوان الرسوم التوضيحية ---------- */
-.art{width:44px;height:44px;flex:none;display:block}
+.art{width:44px;height:44px;flex:none;display:block;object-fit:contain}
 .eyebrow .art{width:15px;height:15px}
 .art .c1{fill:var(--brand)}
 .art .c2{fill:#C3CADF}

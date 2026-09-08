@@ -13,6 +13,7 @@ let PREVIEW = false;
     if(d.CATEGORIES) CATEGORIES = d.CATEGORIES;
     if(d.BRANDS)     BRANDS     = d.BRANDS;
     if(d.PRODUCTS)   PRODUCTS   = d.PRODUCTS;
+    if(d.ICONS && typeof ART_SRC !== 'undefined') Object.assign(ART_SRC, d.ICONS);
     PREVIEW = true;
   }catch(e){}
 })();

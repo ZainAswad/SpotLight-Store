@@ -89,7 +89,22 @@ function icon(name, cls) {
       : 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"') +
     `>${d}</svg>`;
 }
+/* رسمات مرفوعة بانتظار النشر: مسار ← بيانات مؤقتة (تُملأ من لوحة التحكم) */
+const ART_SRC = {};
+
+/* هل القيمة مسار/بيانات صورة لا مفتاح رسمة مدمجة؟ */
+function isArtSrc(v){
+  const t = String(v == null ? '' : v);
+  return t.startsWith('data:') || t.startsWith('http') || t.includes('/');
+}
+
+/* art() هي المنفذ الوحيد لعرض الرسمات في ثلاثة عشر موضعاً،
+   فتعديلها وحدها يجعل الرسمة المرفوعة تعمل في الجميع تلقائياً. */
 function art(name) {
+  if(isArtSrc(name)){
+    const src = ART_SRC[name] || name;
+    return `<img class="art" src="${String(src).replace(/"/g, '&quot;')}" alt="" loading="lazy" decoding="async">`;
+  }
   const d = ART[name] || ART.box || ART.junction;
   return `<svg class="art" viewBox="0 0 120 120" aria-hidden="true">${d}</svg>`;
 }

@@ -36,6 +36,8 @@ function imgFallback(el){
 const DKEY = 'wz_draft_v1', TKEY = 'wz_gh_token', PKEY = 'wz_published_v1';
 const IMG_DIR = 'assets/img/products/';
 const BRAND_DIR = 'assets/img/brands/';
+const ICON_DIR  = 'assets/img/icons/';
+const ICON_MAX  = 300 * 1024;   // حد حجم ملف الرسمة
 const DATA_PATH = 'assets/js/data.js';
 
 /* الحالة */
@@ -60,9 +62,10 @@ function loadState(){
   PUB = { SITE:clone(SITE), CATEGORIES:clone(CATEGORIES), BRANDS:clone(BRANDS), PRODUCTS:clone(PRODUCTS) };
   let d = null;
   try{ d = JSON.parse(localStorage.getItem(DKEY) || 'null'); }catch(e){}
-  if(!d || !d.PRODUCTS){ D = clone(PUB); markDirty(false); awaitingSite = false; return; }
+  if(!d || !d.PRODUCTS){ D = clone(PUB); syncIconSrc(); markDirty(false); awaitingSite = false; return; }
 
   D = d;
+  syncIconSrc();
   const dc = coreOf(D);
   if(dc === coreOf(PUB)){
     // الموقع لحق بالمسودّة — ننظّفها بأمان
@@ -100,7 +103,7 @@ function showSaveFailure(){
     'wazani-backup-' + new Date().toISOString().slice(0, 10) + '.json',
     new Blob([JSON.stringify(D, null, 2)], { type:'application/json' }));
 }
-function saveDraft(){ writeDraft(); awaitingSite = false; markDirty(true); }
+function saveDraft(){ pruneIcons(); writeDraft(); awaitingSite = false; markDirty(true); }
 function discardDraft(){
   localStorage.removeItem(DKEY); localStorage.removeItem(PKEY);
   D = clone(PUB); markDirty(false); awaitingSite = false; renderAll();
@@ -512,8 +515,7 @@ function productSheet(id){
       </div>
 
       <div><h4 style="font-size:14px;margin-bottom:8px">الرسمة التوضيحية <small style="color:var(--grey);font-weight:600">— تظهر إن لم توجد صورة</small></h4>
-        <div class="iconpick" id="iconpick">${Object.keys(ART).map(k =>
-          `<button type="button" data-ic="${k}" class="${k === iconSel ? 'on' : ''}">${art(k)}<i>${k}</i></button>`).join('')}</div>
+        ${iconGridHTML(iconSel, 'iconpick')}
       </div>
     </div>`,
     `<button class="btn btn-ghost" data-x>إلغاء</button>
@@ -530,12 +532,10 @@ function productSheet(id){
   $('#specAdd').onclick = addSpec;
   $('#specIn').onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); addSpec(); } };
 
-  $('#iconpick').onclick = e => {
-    const b = e.target.closest('[data-ic]'); if(!b) return;
-    iconSel = b.dataset.ic;
-    $$('#iconpick button').forEach(x => x.classList.toggle('on', x === b));
+  bindIconGrid('iconpick', () => iconSel, v => {
+    iconSel = v;
     if(!imgs.length) drawImgs();
-  };
+  }, () => $('#fn') ? $('#fn').value.trim() : '');
   /* معرّف مستقرّ من الاسم — عربي أو لاتيني — وفريد داخل المادة */
   const optSlug = (name, taken) => {
     const AR = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي';
@@ -800,6 +800,66 @@ const AR2LAT = { 'ا':'a','أ':'a','إ':'a','آ':'a','ٱ':'a','ب':'b','ت':'t',
   'د':'d','ذ':'th','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh',
   'ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n','ه':'h','ة':'a','و':'w','ؤ':'w','ي':'y','ى':'a','ئ':'y','ء':'' };
 /* يحوّل الاسم العربي إلى معرّف لاتيني مقروء يظهر في رابط القسم */
+/* تعقيم SVG قبل التخزين: الملف يُنشر على نطاق المتجر، وفتحه برابطه
+   مباشرةً ليس آمناً كعرضه داخل <img>. نحلّله ونحذف الخطر بدل الاعتماد
+   على تعابير نمطية تُخدع بسهولة. */
+function sanitizeSVG(txt){
+  let doc;
+  try{ doc = new DOMParser().parseFromString(String(txt || ''), 'image/svg+xml'); }
+  catch(e){ return ''; }
+  if(!doc || doc.querySelector('parsererror')) return '';
+  const svg = doc.querySelector('svg');
+  if(!svg) return '';
+  svg.querySelectorAll('script,foreignObject').forEach(n => n.remove());
+  const walk = el => {
+    [...el.attributes].forEach(a => {
+      const n = a.name.toLowerCase();
+      const v = String(a.value || '').replace(/[\s\u0000-\u001F]/g, '').toLowerCase();
+      if(n.startsWith('on')) el.removeAttribute(a.name);
+      else if((n === 'href' || n.endsWith(':href')) && v.startsWith('javascript:')) el.removeAttribute(a.name);
+    });
+    [...el.children].forEach(walk);
+  };
+  walk(svg);
+  return new XMLSerializer().serializeToString(svg);
+}
+
+/* قراءة ملف رسمة: SVG نصّاً معقّماً (يبقى حادّاً بأي حجم)، وغيره PNG 256 بالشفافية */
+async function readIconFile(f){
+  if(f.size > ICON_MAX)
+    throw new Error(`حجم الملف ${Math.round(f.size / 1024)} كيلوبايت — الحد ${Math.round(ICON_MAX / 1024)}`);
+  const isSvg = /svg/i.test(f.type || '') || /\.svg$/i.test(f.name || '');
+  if(isSvg){
+    const clean = sanitizeSVG(await f.text());
+    if(!clean) throw new Error('ملف SVG غير صالح');
+    return { ext:'svg', data:'data:image/svg+xml;base64,' + b64utf8(clean) };
+  }
+  if(!/png|jpe?g/i.test(f.type || '') && !/\.(png|jpe?g)$/i.test(f.name || ''))
+    throw new Error('الصيغ المقبولة: SVG و PNG و JPG');
+  return { ext:'png', data: await resizeImage(f, 256, .92, 'image/png') };
+}
+
+/* الرسمات المعلّقة تعيش في المسودّة (D.ICONS) لتنجو من إعادة التحميل،
+   وتُنسخ إلى ART_SRC ليعرضها art() في اللوحة وفي المعاينة قبل النشر. */
+function syncIconSrc(){
+  Object.keys(ART_SRC).forEach(k => { delete ART_SRC[k]; });
+  Object.assign(ART_SRC, (D && D.ICONS) || {});
+}
+function iconInUse(path){
+  if(D.PRODUCTS.some(p => p.icon === path)) return true;
+  return D.CATEGORIES.some(c => c.icon === path || (c.subs || []).some(sb => sb.icon === path));
+}
+/* تنظيف الرسمات التي لم تعد مستعملة حتى لا تتراكم في المسودّة */
+function pruneIcons(){
+  if(!D.ICONS) return;
+  Object.keys(D.ICONS).forEach(p => { if(!iconInUse(p)) delete D.ICONS[p]; });
+  if(!Object.keys(D.ICONS).length) delete D.ICONS;
+  syncIconSrc();
+}
+function pendingIcons(){
+  return Object.keys((D && D.ICONS) || {}).map(path => ({ path, data: D.ICONS[path] }));
+}
+
 function slugFrom(name, taken){
   let base = String(name).trim().toLowerCase()
     .replace(/[ً-ْـ]/g, '')
@@ -812,16 +872,59 @@ function slugFrom(name, taken){
   while(taken.includes(s)) s = base + '-' + (++n);
   return s;
 }
-function iconPickHTML(sel){
-  return `<div class="iconpick" id="iconpick2">${Object.keys(ART).map(k =>
-    `<button type="button" data-ic="${k}" class="${k === sel ? 'on' : ''}">${art(k)}<i>${k}</i></button>`).join('')}</div>`;
+/* شبكة الرسمات — id يُمرَّر ليصلح للمادة وللقسم معاً */
+function iconGridHTML(sel, gid){
+  const up = isArtSrc(sel);
+  return `<div class="iconpick" id="${gid}">
+    ${up ? `<button type="button" class="on up" data-ic="${esc(sel)}" title="رسمة مرفوعة">
+              ${art(sel)}<i>مرفوعة</i>
+              <span class="rmup" data-icrm title="إزالة والعودة إلى رسمة مدمجة">${icon('close')}</span>
+            </button>` : ''}
+    ${Object.keys(ART).map(k =>
+      `<button type="button" data-ic="${k}" class="${k === sel ? 'on' : ''}">${art(k)}<i>${k}</i></button>`).join('')}
+  </div>
+  <div class="iconup">
+    <label class="btn btn-sm btn-tonal">${icon('plus')}<span>رفع رسمة</span>
+      <input type="file" accept=".svg,image/svg+xml,image/png,image/jpeg" hidden data-icup="${gid}"></label>
+    <small>SVG أو PNG أو JPG — حتى ${Math.round(ICON_MAX / 1024)} كيلوبايت. SVG يبقى حادّاً بأي حجم.</small>
+  </div>`;
 }
-function bindIconPick(cur, cb){
-  $('#iconpick2').onclick = e => {
-    const b = e.target.closest('[data-ic]'); if(!b) return;
-    cb(b.dataset.ic);
-    $$('#iconpick2 button').forEach(x => x.classList.toggle('on', x === b));
+function iconPickHTML(sel){ return iconGridHTML(sel, 'iconpick2'); }
+
+/* ربط الشبكة: الاختيار، والرفع، والعودة إلى المدمجة.
+   nameOf يعطي اسماً يُشتقّ منه مسار الملف. */
+function bindIconGrid(gid, get, set, nameOf){
+  const redraw = () => {
+    const box = document.getElementById(gid);
+    box.outerHTML = iconGridHTML(get(), gid);
+    bindIconGrid(gid, get, set, nameOf);
   };
+  const box = document.getElementById(gid); if(!box) return;
+  box.onclick = e => {
+    if(e.target.closest('[data-icrm]')){ set('bulb'); redraw(); return; }
+    const b = e.target.closest('[data-ic]'); if(!b) return;
+    set(b.dataset.ic);
+    $$('button', box).forEach(x => x.classList.toggle('on', x === b));
+  };
+  const inp = document.querySelector(`[data-icup="${gid}"]`);
+  if(inp) inp.onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+    try{
+      const { ext, data } = await readIconFile(f);
+      D.ICONS = D.ICONS || {};
+      const taken = Object.keys(D.ICONS).map(p => p.split('/').pop().replace(/\.\w+$/, ''));
+      const path = ICON_DIR + slugFrom(nameOf() || 'icon', taken) + '.' + ext;
+      D.ICONS[path] = data;
+      set(path);
+      syncIconSrc();
+      redraw();
+      toast('رُفعت الرسمة — تُنشر مع التغييرات', 'ok');
+    }catch(err){ toast(err.message || 'تعذّرت قراءة الملف', 'err'); }
+  };
+}
+function bindIconPick(cur, cb, nameOf){
+  let v = cur;
+  bindIconGrid('iconpick2', () => v, x => { v = x; cb(x); }, nameOf || (() => 'icon'));
 }
 function catSheet(id){
   const isNew = !id;
@@ -835,7 +938,7 @@ function catSheet(id){
       <div><h4 style="font-size:14px;margin-bottom:8px">أيقونة القسم</h4>${iconPickHTML(ic)}</div>
     </div>`,
     `<button class="btn btn-ghost" data-x>إلغاء</button><button class="btn" id="cSave">${icon('check')}<span>حفظ</span></button>`);
-  bindIconPick(ic, v => ic = v);
+  bindIconPick(ic, v => ic = v, () => $('#cn') ? $('#cn').value.trim() : '');
   $('#cSave').onclick = () => {
     const name = $('#cn').value.trim();
     if(name.length < 2){ $('#cn').closest('.field').classList.add('err'); return; }
@@ -858,7 +961,7 @@ function subSheet(cid, sid){
       <div><h4 style="font-size:14px;margin-bottom:8px">الأيقونة</h4>${iconPickHTML(ic)}</div>
     </div>`,
     `<button class="btn btn-ghost" data-x>إلغاء</button><button class="btn" id="sSave">${icon('check')}<span>حفظ</span></button>`);
-  bindIconPick(ic, v => ic = v);
+  bindIconPick(ic, v => ic = v, () => $('#sn') ? $('#sn').value.trim() : '');
   $('#sSave').onclick = () => {
     const name = $('#sn').value.trim();
     if(name.length < 2){ $('#sn').closest('.field').classList.add('err'); return; }
@@ -1187,7 +1290,8 @@ async function coordsFromMapUrl(url){
 
 /* ============ تبويب النشر ============ */
 function renderPublish(){
-  const pend = [...D.PRODUCTS.filter(hasPendingImg),
+  const pend = [...pendingIcons().map(ic => ({ name:'رسمة ' + ic.path.split('/').pop(), iconData:ic.data, iconPath:ic.path })),
+                ...D.PRODUCTS.filter(hasPendingImg),
                 ...D.BRANDS.filter(b => b.logoNew && b.logoData)];
   const tok = localStorage.getItem(TKEY) || '';
   const diff = countChanges();
@@ -1275,7 +1379,7 @@ function renderPublish(){
         <ol class="steps" style="margin-bottom:16px">
           <li>نزّل ملف <code>data.js</code>${pend.length ? ' وصور المواد الجديدة' : ''}.</li>
           <li>افتح المستودع على GitHub ← <code>${esc(DATA_PATH)}</code> ← أيقونة القلم ← الصق المحتوى ← Commit.</li>
-          ${pend.length ? `<li>ارفع الصور إلى مجلد <code>${IMG_DIR}</code> عبر Add file ← Upload files.</li>` : ''}
+          ${pend.length ? `<li>ارفع الصور إلى مجلد <code>${IMG_DIR}</code>${pendingIcons().length ? ` والرسمات إلى <code>${ICON_DIR}</code>` : ''} عبر Add file ← Upload files.</li>` : ''}
           <li>ينشر Vercel التحديث تلقائياً خلال ثوانٍ.</li>
         </ol>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1301,7 +1405,8 @@ function renderPublish(){
   const di = $('#dlImgs'); if(di) di.onclick = () => {
     const files = [];
     pend.forEach(x => {
-      if(x.logoData) files.push({ n: slugFrom(x.name, []) + '.png', d: x.logoData });
+      if(x.iconData) files.push({ n: x.iconPath.split('/').pop(), d: x.iconData });
+      else if(x.logoData) files.push({ n: slugFrom(x.name, []) + '.png', d: x.logoData });
       else pendingImgs(x).forEach(im => files.push({ n: im.path.split('/').pop(), d: im.data }));
     });
     files.forEach((f, i) => setTimeout(() => download(f.n, dataUrlToBlob(f.d)), i * 350));
@@ -1414,7 +1519,13 @@ async function publishToGitHub(){
         } }))),
       ...D.BRANDS.filter(b => b.logoNew && b.logoData).map(b => ({
         path: b.logo || (BRAND_DIR + slugFrom(b.name, []) + '.png'), data: b.logoData, name: 'شعار ' + b.name,
-        msg: `رفع شعار ${b.name}`, done: pth => { b.logo = pth; delete b.logoNew; } }))
+        msg: `رفع شعار ${b.name}`, done: pth => { b.logo = pth; delete b.logoNew; } })),
+      /* الرسمات المرفوعة تخصّ المواد والأقسام والأقسام الفرعية معاً،
+         فهي تُجمع من مخزن واحد بدل المرور على كل مجموعة على حدة */
+      ...pendingIcons().map(ic => ({
+        path: ic.path, data: ic.data, name: 'رسمة ' + ic.path.split('/').pop(),
+        msg: `رفع رسمة ${ic.path.split('/').pop()}`,
+        done: () => { if(D.ICONS) delete D.ICONS[ic.path]; } }))
     ];
     const uploaded = [];
     for(const j of jobs){
@@ -1427,6 +1538,8 @@ async function publishToGitHub(){
     say(`نُشر ملف البيانات بنجاح — <a href="${res.commit.html_url}" target="_blank" rel="noopener"><b>عرض التغيير على GitHub</b></a>`);
     say('سيُحدَّث الموقع تلقائياً خلال ثوانٍ عبر Vercel. حدّث صفحة المتجر للتأكد.');
 
+    if(D.ICONS && !Object.keys(D.ICONS).length) delete D.ICONS;
+    syncIconSrc();
     D.PRODUCTS.forEach(p => { delete p.imgData; delete p.imgNew; delete p.imgsData;
     (p.options || []).forEach(o => (o.values || []).forEach(v => { delete v.imgData; })); });
     D.BRANDS.forEach(b => { delete b.logoData; delete b.logoNew; });
