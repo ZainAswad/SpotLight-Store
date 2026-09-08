@@ -1,6 +1,6 @@
 /* =============================================================
    سبوت لايت للكهربائيات والانارة الحديثة
-   ملف البيانات — وُلّد من لوحة التحكم بتاريخ ٣١‏/٨‏/٢٠٢٦، ٤:٢٦:٢٠ م
+   ملف البيانات — وُلّد من لوحة التحكم بتاريخ ٧‏/٩‏/٢٠٢٦، ١:١٩:٤٦ ص
    يمكن تعديله يدوياً أيضاً، أو من admin.html
    ============================================================= */
 
@@ -156,12 +156,16 @@ let BRANDS = [
   { name: 'Ingco', ar: 'إنجكو', logo: 'assets/img/brands/ingco.png' },
   { name: 'CHINT', ar: 'جاينت', logo: 'assets/img/brands/chint.png' },
   { name: 'TOTAL', ar: 'توتال', logo: 'assets/img/brands/total.png' },
-  { name: 'dahua', ar: 'داهوا', logo: 'assets/img/brands/dahua.png' }
+  { name: 'dahua', ar: 'داهوا', logo: 'assets/img/brands/dahua.png' },
+  { name: 'Havells', ar: 'هافلز', logo: 'assets/img/brands/havells.png' }
 ];
 
 /* ---------- 4) المنتجات ---------- */
 let PRODUCTS = [
   { id: 'TEST-001', name: 'منتج تجريبي - للحذف', brand: 'تجريبي', price: 1000, icon: 'bulb',
     cats: ['lighting/bulbs'], desc: 'مادة تجريبية مؤقتة لاختبار دورة الطلب — تُحذف عند إدخال المنتجات الحقيقية.',
-    specs: ['للاختبار فقط', 'يُحذف لاحقاً'] }
+    specs: ['للاختبار فقط', 'يُحذف لاحقاً'] },
+  { id: '1945', name: 'مروحة سقف هافلز', brand: 'Havells', price: 165000, icon: 'bulb', unit: 'قطعة', image: 'assets/img/products/1945.jpg', images: ['assets/img/products/1945.jpg', 'assets/img/products/1945-2.jpg'],
+    cats: ['electrical/fans'], desc: '',
+    specs: ['ثلاث ريش', 'تحكم ريمونت', 'ضمان 3 سنوات'] }
 ];
