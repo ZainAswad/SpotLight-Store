@@ -245,8 +245,18 @@ details summary::-webkit-details-marker{display:none}
 .optbox-h .ibtn.del{margin-inline-start:auto}
 .optbadge{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:var(--r-pill);
   background:var(--navy);color:#fff}
-.optval{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:7px;
-  background:#fff;border:1px solid var(--line-2);border-radius:var(--r-sm);padding:7px 9px}
+.optval{margin-bottom:9px;background:#fff;border:1px solid var(--line-2);
+  border-radius:var(--r-sm);padding:8px 10px}
+.optval-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+/* شرائح مواصفات القيمة — خطّ جانبي وإزاحة لتبدو تابعة لقيمتها */
+.vspecs{margin-top:8px;padding-inline-start:11px;border-inline-start:2px solid var(--line)}
+.vspecs-add{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.vspecs-add input{flex:1 1 130px;min-width:0;width:0;padding:6px 10px;border-radius:var(--r-xs);
+  border:1.5px solid var(--line);background:var(--surface-2);font-size:12.5px}
+.vspecs-add .btn{flex:none}
+.vspecs-list{margin-top:6px}
+.vspecs-list .cl{font-size:11.5px;padding:3px 8px}
+.vspecs-list:empty{display:none}
 .optval input[type=text]{flex:1;min-width:96px;padding:7px 10px;border-radius:var(--r-xs);
   border:1.5px solid var(--line);background:#fff;font-size:13px}
 .optval input[type=text][data-vf=price]{flex:0 0 118px;min-width:96px}
@@ -269,3 +279,5 @@ details summary::-webkit-details-marker{display:none}
   cursor:pointer;z-index:2}
 .iconpick .rmup .ic{width:12px;height:12px}
 .iconpick .rmup:hover{background:var(--brand-700)}
+
+.optval input[data-vf=usd]{flex:0 0 92px;min-width:78px}

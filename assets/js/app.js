@@ -138,7 +138,7 @@ function optsHTML(p){
       <div class="opt-vals" role="group" aria-label="${esc(o.name)}">
         ${o.values.map((v, i) => o.type === 'color'
           ? `<button type="button" class="sw${i ? '' : ' on'}" data-ov data-ol="${esc(v.label)}"
-               style="--sw:${esc(v.swatch || '#CCC')}" title="${esc(v.label)}"
+               style="--sw:${esc(swatchOf(v))}" title="${esc(v.label)}"
                aria-label="${esc(v.label)}" aria-pressed="${i ? 'false' : 'true'}"></button>`
           : `<button type="button" class="ov${i ? '' : ' on'}" data-ov data-ol="${esc(v.label)}"
                aria-pressed="${i ? 'false' : 'true'}">${esc(v.label)}</button>`).join('')}
@@ -163,7 +163,7 @@ function colorDots(p){
   if(!o) return '';
   const show = o.values.slice(0, 5), more = o.values.length - show.length;
   return `<span class="cdots" aria-label="${esc(o.name)}: ${o.values.length} خيارات">
-    ${show.map(v => `<i style="--sw:${esc(v.swatch || '#CCC')}" title="${esc(v.label)}"></i>`).join('')}
+    ${show.map(v => `<i style="--sw:${esc(swatchOf(v))}" title="${esc(v.label)}"></i>`).join('')}
     ${more > 0 ? `<b>+${more}</b>` : ''}</span>`;
 }
 
@@ -184,7 +184,10 @@ function card(p){
       <div class="badges">${badge}${off ? `<span class="bdg bdg-sale">-${off}%</span>` : ''}</div>
       <button class="fav ${store.isFav(p.id) ? 'on' : ''}" data-fav="${p.id}" aria-label="أضف إلى المفضلة">${icon('heart')}</button>
       ${media(p)}
-      <div class="quick"><button class="btn btn-sm btn-block" data-add="${p.id}">${icon('cart')}<span>أضف إلى السلة</span></button></div>
+      <div class="quick">${askPrice(p, defaultOpts(p))
+        ? `<a class="btn btn-sm btn-block wa" target="_blank" rel="noopener"
+             href="${waLink(`السلام عليكم، أستفسر عن سعر: ${p.name} (${p.id})`)}">${icon('whatsapp')}<span>استفسر عن السعر</span></a>`
+        : `<button class="btn btn-sm btn-block" data-add="${p.id}">${icon('cart')}<span>أضف إلى السلة</span></button>`}</div>
     </div>
     <div class="card-body">
       <span class="card-brand">${esc(p.brand)}</span>
@@ -192,10 +195,13 @@ function card(p){
       <span class="card-cat">${esc(subLabel(p))}</span>
       ${colorDots(p)}
       <div class="price-row">
-        <span class="price">${priceHTML(p.price)}</span>
-        ${p.old ? `<span class="old">${money(p.old)}</span>` : ''}
+        <span class="price">${priceView(priceInfo(p, defaultOpts(p)))}</span>
+        ${p.old && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span>` : ''}
       </div>
-      <button class="btn btn-sm btn-tonal card-add" data-add="${p.id}">${icon('cart')}<span>أضف إلى السلة</span></button>
+      ${askPrice(p, defaultOpts(p))
+        ? `<a class="btn btn-sm btn-tonal card-add wa" target="_blank" rel="noopener"
+             href="${waLink(`السلام عليكم، أستفسر عن سعر: ${p.name} (${p.id})`)}">${icon('whatsapp')}<span>استفسر عن السعر</span></a>`
+        : `<button class="btn btn-sm btn-tonal card-add" data-add="${p.id}">${icon('cart')}<span>أضف إلى السلة</span></button>`}
     </div>
   </article>`;
 }
@@ -422,17 +428,19 @@ function viewProduct(id){
         <span class="card-brand">${esc(p.brand)} · ${esc(p.id)}</span>
         <h3>${esc(p.name)}</h3>
         <div class="price-row">
-          <span class="price" id="pPrice" style="font-size:26px">${priceHTML(optPrice(p, defaultOpts(p)))}</span>
-          ${p.old ? `<span class="old">${money(p.old)}</span><span class="off">وفّر ${off}%</span>` : ''}
+          <span class="price" id="pPrice" style="font-size:26px">${priceView(priceInfo(p, defaultOpts(p)))}</span>
+          ${p.old && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span><span class="off">وفّر ${off}%</span>` : ''}
           <span class="card-cat">/ ${esc(p.unit || 'حبة')}</span>
         </div>
         ${optsHTML(p)}
         <p class="desc">${esc(p.desc)}</p>
-        <ul class="specs">${(p.specs || []).map(x => `<li>${icon('check')}<span>${esc(x)}</span></li>`).join('')}</ul>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px">
-          <div class="qty" data-qtybox><button data-step="-1" aria-label="إنقاص">${icon('minus')}</button>
+        <ul class="specs" id="pSpecs">${specsOf(p, defaultOpts(p)).map(x => `<li>${icon('check')}<span>${esc(x)}</span></li>`).join('')}</ul>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px" id="pBuy">
+          ${askPrice(p, defaultOpts(p)) ? `<a class="btn btn-lg wa" target="_blank" rel="noopener"
+              href="${waLink(`السلام عليكم، أستفسر عن سعر: ${p.name} (${p.id})`)}">${icon('whatsapp')}<span>استفسر عن السعر</span></a>`
+            : `<div class="qty" data-qtybox><button data-step="-1" aria-label="إنقاص">${icon('minus')}</button>
             <span id="pq">1</span><button data-step="1" aria-label="زيادة">${icon('plus')}</button></div>
-          <button class="btn btn-lg" data-add="${p.id}" data-useqty>${icon('cart')}<span>أضف إلى السلة</span></button>
+          <button class="btn btn-lg" data-add="${p.id}" data-useqty>${icon('cart')}<span>أضف إلى السلة</span></button>`}
           <button class="ibtn fav ${store.isFav(p.id) ? 'on' : ''}" data-fav="${p.id}" style="position:static;width:48px;height:48px;box-shadow:var(--e1)">${icon('heart')}</button>
         </div>
         <a class="btn btn-block wa" style="margin-top:12px" target="_blank" rel="noopener"
@@ -846,13 +854,15 @@ function openQuick(id){
     <div class="qv-body">
       <span class="card-brand">${esc(p.brand)} · ${esc(p.id)}</span>
       <h3>${esc(p.name)}</h3>
-      <div class="price-row"><span class="price" style="font-size:24px">${priceHTML(p.price)}</span>
-        ${p.old ? `<span class="old">${money(p.old)}</span><span class="off">-${off}%</span>` : ''}
+      <div class="price-row"><span class="price" style="font-size:24px">${priceView(priceInfo(p, defaultOpts(p)))}</span>
+        ${p.old && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span><span class="off">-${off}%</span>` : ''}
         <span class="card-cat">/ ${esc(p.unit || 'حبة')}</span></div>
       <p class="desc">${esc(p.desc)}</p>
-      <ul class="specs">${(p.specs || []).map(x => `<li>${icon('check')}<span>${esc(x)}</span></li>`).join('')}</ul>
+      <ul class="specs">${specsOf(p, defaultOpts(p)).map(x => `<li>${icon('check')}<span>${esc(x)}</span></li>`).join('')}</ul>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
-        <button class="btn btn-lg" data-add="${p.id}">${icon('cart')}<span>أضف إلى السلة</span></button>
+        ${askPrice(p, defaultOpts(p)) ? `<a class="btn btn-lg wa" target="_blank" rel="noopener"
+            href="${waLink(`السلام عليكم، أستفسر عن سعر: ${p.name} (${p.id})`)}">${icon('whatsapp')}<span>استفسر عن السعر</span></a>`
+          : `<button class="btn btn-lg" data-add="${p.id}">${icon('cart')}<span>أضف إلى السلة</span></button>`}
         <a class="btn btn-lg btn-outline" href="#/p/${p.id}" data-mclose>التفاصيل الكاملة</a>
       </div>
       <div class="qv-cats">${p.cats.map(k => { const x = subInfo(k); return x ? `<a href="#/c/${x.parent.id}/${x.id}" data-mclose>${esc(x.name)}</a>` : ''; }).join('')}</div>
@@ -1019,7 +1029,9 @@ function bindGlobal(){
       const p = byId(box.dataset.opts);
       if(p){
         const opts = readOpts();
-        const pr = $('#pPrice'); if(pr) pr.innerHTML = priceHTML(optPrice(p, opts));
+        const pr = $('#pPrice'); if(pr) pr.innerHTML = priceView(priceInfo(p, opts));
+        const sp = $('#pSpecs');
+        if(sp) sp.innerHTML = specsOf(p, opts).map(x => `<li>${icon('check')}<span>${esc(x)}</span></li>`).join('');
         /* الصورة: المعرض يقفز إلى صورة القيمة المختارة */
         const o = optList(p).find(x => x.id === opt.dataset.opt);
         const v = o ? optValue(o, ov.dataset.ol) : null;

@@ -635,6 +635,10 @@ html[dir=rtl] .sel select{padding:8px 13px 8px 32px}
   transition:background var(--t) var(--ease),color var(--t) var(--ease)}
 .qv-cats a:hover{background:var(--brand);color:#fff}
 
+/* «السعر عند الطلب» — يحلّ محلّ الرقم فيبقى الصفّ متوازناً */
+.ask{font-size:.86em;font-weight:700;color:var(--grey);letter-spacing:-.2px}
+.price .ask{color:var(--ink-2)}
+
 /* --- خيارات المنتج --- */
 .opts{display:grid;gap:16px;margin:18px 0 4px}
 .opt h4{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:800;

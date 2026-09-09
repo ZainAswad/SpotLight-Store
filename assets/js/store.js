@@ -34,16 +34,20 @@ function defaultOpts(p){
   optList(p).forEach(o => { out[o.id] = o.values[0].label; });
   return Object.keys(out).length ? out : null;
 }
-/* السعر: تُفحص القيم بترتيب الخيارات، وآخر قيمة تحمل سعراً هي الحاكمة */
-function optPrice(p, opts){
-  let price = p.price;
-  if(!opts) return price;
-  optList(p).forEach(o => {
+/* التسعير: آخر قيمة مختارة تحمل سعراً (ديناراً أو دولاراً) هي الحاكمة،
+   وإلا فسعر المادة. يرجع كائناً من priceOf: iqd أو usd أو ask. */
+function priceInfo(p, opts){
+  let src = p;
+  if(opts) optList(p).forEach(o => {
     const v = optValue(o, opts[o.id]);
-    if(v && typeof v.price === 'number' && v.price > 0) price = v.price;
+    if(v && (num(v.price) || num(v.usd))) src = v;
   });
-  return price;
+  return priceOf(src);
 }
+/* المبلغ المحتسب في السلة والطلب */
+function optPrice(p, opts){ return chargeOf(priceInfo(p, opts)); }
+/* هل السعر «عند الطلب»؟ — بلا سعر أصلاً، أو دولار بلا سعر صرف مضبوط */
+function askPrice(p, opts){ const pr = priceInfo(p, opts); return pr.kind === 'ask' || !!pr.norate; }
 /* الصورة: آخر قيمة مختارة تحمل صورة */
 function optImage(p, opts){
   let img = '';
@@ -60,6 +64,16 @@ function optDraft(p, path){
   optList(p).forEach(o => o.values.forEach(v => { if(v && v.image === path && v.imgData) d = v.imgData; }));
   return d;
 }
+/* مواصفات المادة + مواصفات القيم المختارة، بلا تكرار */
+function specsOf(p, opts){
+  const out = (p.specs || []).slice();
+  if(opts) optList(p).forEach(o => {
+    const v = optValue(o, opts[o.id]);
+    (v && Array.isArray(v.specs) ? v.specs : []).forEach(x => { if(x && !out.includes(x)) out.push(x); });
+  });
+  return out;
+}
+
 /* نص مقروء: «اللون: أزرق · القياس: 80 سم» */
 function optsText(p, opts){
   if(!opts) return '';
@@ -94,6 +108,10 @@ const store = {
   keyOf(l){ return lineKey(l.id, l.opts); },
   add(id, q = 1, opts){
     const p = byId(id); if(!p) return;
+    /* حارس أخير: ما لا يمكن تسعيره بالدينار لا يدخل السلة بصفر */
+    if(askPrice(p, opts && Object.keys(opts).length ? opts : defaultOpts(p))){
+      toast('هذه المادة سعرها عند الطلب — استفسر عبر واتساب'); return;
+    }
     const key = lineKey(id, opts);
     const line = this.cart.find(l => this.keyOf(l) === key);
     if(line) line.q = Math.min(999, line.q + q);
@@ -204,6 +222,17 @@ function byId(id){ return PMAP.get(id); }
 
 function money(n){ return new Intl.NumberFormat('en-US').format(Math.round(n)); }
 function priceHTML(n){ return `${money(n)} <small>${SITE.currency}</small>`; }
+/* عرض السعر من كائن priceOf: مبلغ، أو مدى بالدولار، أو «عند الطلب» */
+function priceView(pr){
+  if(pr.kind === 'iqd') return priceHTML(pr.iqd);
+  if(pr.kind === 'usd'){
+    if(!pr.max) return `${money(pr.usd)} <small>$</small>`;
+    return pr.min === pr.max
+      ? priceHTML(pr.max)
+      : `${money(pr.min)} – ${money(pr.max)} <small>${SITE.currency}</small>`;
+  }
+  return '<span class="ask">السعر عند الطلب</span>';
+}
 
 /* شجرة الأقسام: خرائط سريعة */
 const CMAP = new Map(), SMAP = new Map();

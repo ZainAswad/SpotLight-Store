@@ -231,6 +231,8 @@ function serializeData(d){
   L.push(S.hours.map(h => `    { d: ${q(h.d)}, t: ${q(h.t)} }`).join(',\n'));
   L.push('  ],');
   L.push(`  geo: { lat: ${S.geo.lat}, lng: ${S.geo.lng}, zoom: ${S.geo.zoom || 15} },`);
+  if(S.usdRate && (+S.usdRate.min || +S.usdRate.max))
+    L.push(`  usdRate: { min: ${+S.usdRate.min || 0}, max: ${+S.usdRate.max || 0} },`);
   const BR = (S.branches || []).filter(b => b && b.name);
   L.push('  // الفروع — الموقع يعمل بفرع واحد أو بلا فروع');
   L.push('  branches: [' + (BR.length ? '' : '],'));
@@ -290,7 +292,9 @@ function serializeData(d){
   L.push('let PRODUCTS = [');
   L.push(d.PRODUCTS.map(p => {
     const head = ['id','name','brand'].map(k => `${k}: ${q(p[k])}`).join(', ');
-    const nums = [`price: ${+p.price}`];
+    const nums = [];
+    if(+p.price > 0) nums.push(`price: ${+p.price}`);
+    if(+p.usd   > 0) nums.push(`usd: ${+p.usd}`);
     if(p.old) nums.push(`old: ${+p.old}`);
     const tail = [`icon: ${q(p.icon)}`];
     if(p.badge) tail.push(`badge: ${q(p.badge)}`);
@@ -298,7 +302,7 @@ function serializeData(d){
     if(p.image) tail.push(`image: ${q(p.image)}`);
     if((p.images || []).length > 1) tail.push(`images: ${inlineArr(p.images)}`);
     const OPT = (p.options || []).filter(o => o && o.id && (o.values || []).length);
-    let s = `  { ${head}, ${nums.join(', ')}, ${tail.join(', ')},\n`;
+    let s = `  { ${head}, ${nums.length ? nums.join(', ') + ', ' : ''}${tail.join(', ')},\n`;
     s += `    cats: ${inlineArr(p.cats)}, desc: ${q(p.desc || '')},\n`;
     s += `    specs: ${inlineArr(p.specs || [])}`;
     if(OPT.length){
@@ -309,6 +313,8 @@ function serializeData(d){
           if(v.swatch) bits.push(`swatch: ${q(v.swatch)}`);
           if(v.image)  bits.push(`image: ${q(v.image)}`);
           if(+v.price > 0) bits.push(`price: ${+v.price}`);
+          if(+v.usd   > 0) bits.push(`usd: ${+v.usd}`);
+          if((v.specs || []).length) bits.push(`specs: ${inlineArr(v.specs)}`);
           return `          { ${bits.join(', ')} }`;
         }).join(',\n') + `\n        ] }`).join(',\n') + `\n    ]`;
     }
@@ -390,7 +396,11 @@ function renderTable(){
       <span class="tname"><b>${esc(p.name)}</b><small>${esc(p.id)}</small>
         <span class="tcats">${p.cats.map(c => `<span>${esc(subName(c))}</span>`).join('')}</span></span>
       <span class="thide">${esc(p.brand)}</span>
-      <span class="tprice">${money(p.price)}${p.old ? `<s>${money(p.old)}</s>` : ''}</span>
+      <span class="tprice">${(() => { const pr = priceOf(p);
+        return pr.kind === 'iqd' ? money(pr.iqd)
+             : pr.kind === 'usd' ? (pr.max ? money(pr.min) + ' – ' + money(pr.max)
+                 : money(pr.usd) + ' $ <em style="color:var(--danger);font-style:normal;font-size:11px">اضبط سعر الصرف</em>')
+             : '<em style="color:var(--grey-2);font-style:normal">عند الطلب</em>'; })()}${p.old ? `<s>${money(p.old)}</s>` : ''}</span>
       <span class="thide">${p.badge ? `<span class="bdg bdg-${p.badge}">${badgeName(p.badge)}</span>` : '—'}</span>
       <span class="tacts">
         <button class="ibtn" data-edit="${esc(p.id)}" title="تعديل">${icon('edit')}</button>
@@ -441,7 +451,8 @@ function productSheet(id){
   let opts = (Array.isArray(p.options) ? p.options : []).map(o => ({
     id: o.id, name: o.name || '', type: o.type === 'color' ? 'color' : 'text',
     values: (o.values || []).map(v => ({ label:v.label || '', swatch:v.swatch || '',
-      image:v.image || '', imgData:v.imgData || '', price:v.price || 0 }))
+      image:v.image || '', imgData:v.imgData || '', price:v.price || 0, usd:v.usd || 0,
+      specs: Array.isArray(v.specs) ? v.specs.slice() : undefined }))
   }));
 
   /* صور المادة: مسارات + بيانات مسودّة موازية لها */
@@ -458,8 +469,13 @@ function productSheet(id){
         <div class="field"><input id="fu" placeholder=" " value="${esc(p.unit || 'حبة')}"><label>وحدة البيع (حبة / لفة / متر …)</label></div>
       </div>
       <div class="f2">
-        <div class="field"><input id="fp" placeholder=" " inputmode="numeric" value="${p.price || ''}"><label>السعر بالدينار *</label><span class="msg">أدخل سعراً صحيحاً</span></div>
+        <div class="field"><input id="fp" placeholder=" " inputmode="numeric" value="${p.price || ''}"><label>السعر بالدينار (اختياري)</label></div>
+        <div class="field"><input id="fu" placeholder=" " inputmode="decimal" value="${p.usd || ''}"><label>السعر بالدولار (اختياري)</label></div>
+      </div>
+      <div class="f2">
         <div class="field"><input id="fo" placeholder=" " inputmode="numeric" value="${p.old || ''}"><label>السعر قبل التخفيض (اختياري)</label></div>
+        <div class="field" style="display:grid;align-content:center"><small style="color:var(--grey);font-size:12px">
+          الدينار يسبق الدولار. بلا سعرٍ تظهر «السعر عند الطلب» ويصير الزر استفساراً عبر واتساب.</small></div>
       </div>
       <div class="f2">
         <div class="field"><select id="fg">
@@ -552,6 +568,9 @@ function productSheet(id){
     return id;
   };
 
+  /* العنصر النائب يذكر اسم القيمة ليعرف صاحب المحل لمن يكتب */
+  const vspecPh = lab => `مواصفة تخصّ «${(lab || '').trim() || '…'}» — مثال: 15 مصباح`;
+
   const drawOpts = () => {
     $('#optList').innerHTML = opts.map((o, oi) => `<div class="optbox" data-oi="${oi}">
       <div class="optbox-h">
@@ -564,16 +583,28 @@ function productSheet(id){
       </div>
       <div class="optvals">
         ${o.values.map((v, vi) => `<div class="optval" data-vi="${vi}">
-          ${o.type === 'color'
-            ? `<input type="color" data-vf="swatch" value="${esc(v.swatch || '#cccccc')}" title="اللون">`
-            : ''}
-          <input type="text" data-vf="label" value="${esc(v.label)}" placeholder="القيمة">
-          <input type="text" data-vf="price" value="${v.price ? v.price : ''}" inputmode="numeric" placeholder="سعر (اختياري)">
-          <label class="btn btn-sm ${v.image || v.imgData ? 'btn-tonal' : 'btn-ghost'}" title="صورة القيمة">
-            ${icon('box')}<span>${v.image || v.imgData ? 'تغيير' : 'صورة'}</span>
-            <input type="file" accept="image/*" data-vimg="${oi}|${vi}" hidden></label>
-          ${v.image || v.imgData ? `<span class="optthumb"><img src="${esc(v.imgData || assetUrl(v.image))}" alt=""></span>` : ''}
-          <button class="ibtn del" type="button" data-vd="${oi}|${vi}" title="حذف القيمة">${icon('trash')}</button>
+          <div class="optval-row">
+            ${o.type === 'color'
+              ? `<input type="color" data-vf="swatch" value="${esc(swatchOf(v))}" title="اللون — يُخمَّن من الاسم ويمكن تغييره">`
+              : ''}
+            <input type="text" data-vf="label" value="${esc(v.label)}" placeholder="القيمة">
+            <input type="text" data-vf="price" value="${v.price ? v.price : ''}" inputmode="numeric" placeholder="د.ع (اختياري)">
+            <input type="text" data-vf="usd" value="${v.usd ? v.usd : ''}" inputmode="decimal" placeholder="$ (اختياري)">
+            <label class="btn btn-sm ${v.image || v.imgData ? 'btn-tonal' : 'btn-ghost'}" title="صورة القيمة">
+              ${icon('box')}<span>${v.image || v.imgData ? 'تغيير' : 'صورة'}</span>
+              <input type="file" accept="image/*" data-vimg="${oi}|${vi}" hidden></label>
+            ${v.image || v.imgData ? `<span class="optthumb"><img src="${esc(v.imgData || assetUrl(v.image))}" alt=""></span>` : ''}
+            <button class="ibtn del" type="button" data-vd="${oi}|${vi}" title="حذف القيمة">${icon('trash')}</button>
+          </div>
+          <div class="vspecs">
+            <div class="vspecs-add">
+              <input type="text" data-vsin="${oi}|${vi}"
+                     placeholder="${esc(vspecPh(v.label))}">
+              <button class="btn btn-sm btn-tonal" type="button" data-vsadd="${oi}|${vi}">${icon('plus')}<span>إضافة</span></button>
+            </div>
+            <div class="chiplist vspecs-list">${(v.specs || []).map((x, si) =>
+              `<span class="cl">${esc(x)}<button type="button" data-vsx="${oi}|${vi}|${si}">${icon('close')}</button></span>`).join('')}</div>
+          </div>
         </div>`).join('')}
       </div>
       <button class="btn btn-sm btn-ghost" type="button" data-va="${oi}">${icon('plus')}<span>إضافة قيمة</span></button>
@@ -588,6 +619,7 @@ function productSheet(id){
         const get = k => { const el = row.querySelector(`[data-vf="${k}"]`); return el ? el.value : ''; };
         v.label = get('label').trim();
         v.price = +String(get('price')).replace(/\D/g, '') || 0;
+        v.usd   = +String(get('usd')).replace(/[^\d.]/g, '') || 0;
         if(o.type === 'color') v.swatch = get('swatch') || v.swatch;
       });
     });
@@ -600,11 +632,72 @@ function productSheet(id){
     readOptFields();
     const type = $('#optType').value === 'color' ? 'color' : 'text';
     opts.push({ id: optSlug(name, new Set(opts.map(x => x.id))), name, type,
-                values: [{ label:'', swatch: type === 'color' ? '#cccccc' : '', image:'', imgData:'', price:0 }] });
+                values: [{ label:'', swatch: type === 'color' ? DEFAULT_SWATCH : '', image:'', imgData:'', price:0 }] });
     $('#optName').value = '';
     drawOpts();
   };
+  /* إضافة شريحة مواصفة لقيمة — بلا إعادة رسم كاملة حتى لا يضيع التركيز */
+  const addVSpec = (oi, vi) => {
+    const box = $(`#optList .optbox[data-oi="${oi}"] .optval[data-vi="${vi}"]`); if(!box) return;
+    const inp = $('[data-vsin]', box), val = inp.value.trim();
+    if(!val) { inp.focus(); return; }
+    const v = opts[oi].values[vi];
+    v.specs = Array.isArray(v.specs) ? v.specs : [];
+    v.specs.push(val);
+    $('.vspecs-list', box).innerHTML = v.specs.map((x, si) =>
+      `<span class="cl">${esc(x)}<button type="button" data-vsx="${oi}|${vi}|${si}">${icon('close')}</button></span>`).join('');
+    inp.value = '';
+    inp.focus();                       // ليكتب التالية بلا نقر
+  };
+
+  $('#optList').oninput = e => {
+    const lab = e.target.closest('[data-vf="label"]');
+    if(!lab) return;
+    const row = lab.closest('.optval'), box = lab.closest('.optbox');
+    const oi = +box.dataset.oi, vi = +row.dataset.vi;
+    const v = opts[oi] && opts[oi].values[vi]; if(!v) return;
+    v.label = lab.value.trim();
+    /* العنصر النائب يتحدّث فوراً — نعدّل الخاصية لا نعيد الرسم */
+    const vs = $('[data-vsin]', row); if(vs) vs.placeholder = vspecPh(v.label);
+    /* تخمين اللون أثناء الكتابة، ولا يدهس اختياراً يدوياً */
+    if(opts[oi].type === 'color'){
+      const sw = $('[data-vf="swatch"]', row);
+      if(sw && !v.swatchManual){
+        const g = guessColor(v.label);
+        if(g) sw.value = g.toLowerCase();
+      }
+    }
+  };
+  /* أول تغيير يدوي في منتقي اللون يثبّت الاختيار فلا يدهسه التخمين */
+  $('#optList').addEventListener('change', e => {
+    const sw = e.target.closest('[data-vf="swatch"]'); if(!sw) return;
+    const row = sw.closest('.optval'), box = sw.closest('.optbox');
+    const v = opts[+box.dataset.oi].values[+row.dataset.vi];
+    if(v){ v.swatchManual = true; v.swatch = sw.value; }
+  });
+  $('#optList').onkeydown = e => {
+    const inp = e.target.closest('[data-vsin]');
+    if(inp && e.key === 'Enter'){
+      e.preventDefault();
+      const [oi, vi] = inp.dataset.vsin.split('|').map(Number);
+      addVSpec(oi, vi);
+    }
+  };
+
   $('#optList').onclick = e => {
+    const vsa = e.target.closest('[data-vsadd]');
+    if(vsa){ const [oi, vi] = vsa.dataset.vsadd.split('|').map(Number); addVSpec(oi, vi); return; }
+    const vsx = e.target.closest('[data-vsx]');
+    if(vsx){
+      const [oi, vi, si] = vsx.dataset.vsx.split('|').map(Number);
+      const v = opts[oi].values[vi];
+      v.specs.splice(si, 1);
+      if(!v.specs.length) delete v.specs;      // لا نترك مصفوفة فارغة في data.js
+      const box = $(`#optList .optbox[data-oi="${oi}"] .optval[data-vi="${vi}"]`);
+      $('.vspecs-list', box).innerHTML = (v.specs || []).map((x, k) =>
+        `<span class="cl">${esc(x)}<button type="button" data-vsx="${oi}|${vi}|${k}">${icon('close')}</button></span>`).join('');
+      return;
+    }
     const del = e.target.closest('[data-od]');
     if(del){ readOptFields(); opts.splice(+del.dataset.od, 1); drawOpts(); return; }
     const mv = e.target.closest('[data-omv]');
@@ -615,7 +708,7 @@ function productSheet(id){
     const va = e.target.closest('[data-va]');
     if(va){ readOptFields();
       const o = opts[+va.dataset.va];
-      o.values.push({ label:'', swatch: o.type === 'color' ? '#cccccc' : '', image:'', imgData:'', price:0 });
+      o.values.push({ label:'', swatch: o.type === 'color' ? DEFAULT_SWATCH : '', image:'', imgData:'', price:0, usd:0 });
       drawOpts(); return; }
     const vd = e.target.closest('[data-vd]');
     if(vd){ readOptFields();
@@ -681,11 +774,12 @@ function productSheet(id){
   $('#pSave').onclick = () => {
     const name = $('#fn').value.trim(), brand = $('#fb').value.trim();
     const price = parseInt(String($('#fp').value).replace(/\D/g, ''), 10) || 0;
+    const usd = +String($('#fu').value).replace(/[^\d.]/g, '') || 0;
     const old = parseInt(String($('#fo').value).replace(/\D/g, ''), 10) || 0;
     cats = $$('#catpick input:checked').map(x => x.value);
     let ok = true;
     const mark = (sel, bad) => { $(sel).closest('.field').classList.toggle('err', bad); if(bad) ok = false; };
-    mark('#fn', name.length < 2); mark('#fb', brand.length < 1); mark('#fp', price <= 0);
+    mark('#fn', name.length < 2); mark('#fb', brand.length < 1);
     $('#catMsg').style.display = cats.length ? 'none' : 'block'; if(!cats.length) ok = false;
     if(!ok){ toast('أكمل الحقول المطلوبة', 'err'); return; }
 
@@ -693,6 +787,7 @@ function productSheet(id){
     if(isNew && D.PRODUCTS.some(x => x.id === pid)){ toast('رقم المادة مستخدم مسبقاً', 'err'); return; }
 
     const rec = { id:pid, name, brand, price, icon:iconSel, cats, desc:$('#fd').value.trim(), specs };
+    if(usd) rec.usd = usd;
     if(old > price) rec.old = old;
     const badge = $('#fg').value; if(badge) rec.badge = badge;
     const unit = $('#fu').value.trim(); if(unit && unit !== 'حبة') rec.unit = unit;
@@ -707,10 +802,17 @@ function productSheet(id){
       clean.forEach(o => o.values.forEach(v => {
         if(v.imgData && !v.image) v.image = IMG_DIR + pid + '-o' + (++n) + '.jpg';
         else if(v.image) n = Math.max(n, +(String(v.image).match(/-o(\d+)\.jpg$/) || [0, 0])[1]);
-        if(o.type !== 'color') delete v.swatch;
+        if(o.type === 'color') v.swatch = swatchOf(v);   // نثبّت المخمَّن فيصل إلى المتجر
+        else delete v.swatch;
+        delete v.swatchManual;                            // حقل تحرير مؤقّت
         if(!v.price) delete v.price;
+        if(!v.usd) delete v.usd;
         if(!v.image) delete v.image;
         if(!v.imgData) delete v.imgData;
+        if(Array.isArray(v.specs)){
+          v.specs = v.specs.map(x => String(x).trim()).filter(Boolean);
+          if(!v.specs.length) delete v.specs;
+        }
       }));
       rec.options = clean;
     }
@@ -1117,6 +1219,16 @@ function renderSettings(){
         <div class="field"><input id="hd${i}" placeholder=" " value="${esc(h.d)}"><label>الأيام</label></div>
         <div class="field"><input id="ht${i}" placeholder=" " value="${esc(h.t)}"><label>الأوقات</label></div></div>`).join('')}
 
+      <h3 style="font-size:16px;margin-top:10px">سعر صرف الدولار</h3>
+      <div class="note note-info">${icon('bolt')}<span>يُستعمل للمواد المسعّرة بالدولار فتظهر بمدى بالدينار.
+        إعداد واحد للمحل كله — تغيّر السوق تعديل هنا لا تعديل كل مادة.</span></div>
+      <div class="f2">
+        <div class="field"><input id="uMin" placeholder=" " inputmode="numeric"
+          value="${(S.usdRate && S.usdRate.min) || ''}"><label>أدنى سعر صرف</label></div>
+        <div class="field"><input id="uMax" placeholder=" " inputmode="numeric"
+          value="${(S.usdRate && S.usdRate.max) || ''}"><label>أعلى سعر صرف</label></div>
+      </div>
+
       <h3 style="font-size:16px;margin-top:10px">التوصيل والطلبات</h3>
       <div class="f2">
         <div class="field"><input id="oIn" placeholder=" " inputmode="numeric" value="${S.orders.deliveryFeeInCity}"><label>أجرة التوصيل داخل ${esc(S.city)}</label></div>
@@ -1257,6 +1369,10 @@ function renderSettings(){
     S.orders.deliveryFeeOutCity = +String($('#oOut').value).replace(/\D/g, '') || 0;
     S.orders.freeDeliveryOver   = +String($('#oFree').value).replace(/\D/g, '') || 0;
     S.orders.webhook = $('#oHook').value.trim();
+    const uMin = +String($('#uMin').value).replace(/\D/g, '') || 0;
+    const uMax = +String($('#uMax').value).replace(/\D/g, '') || 0;
+    if(uMin || uMax) S.usdRate = { min: uMin || uMax, max: uMax || uMin };
+    else delete S.usdRate;
     S.firebase = S.firebase || {};
     S.firebase.apiKey    = $('#fbKey').value.trim();
     S.firebase.projectId = $('#fbProj').value.trim();
