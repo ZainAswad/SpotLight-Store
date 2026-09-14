@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "سبوت لايت للكهربائيات والانارة الحديثة",
+  "short_name": "سبوت لايت",
+  "description": "متجر سبوت لايت للكهربائيات والانارة الحديثة في كربلاء — كل ما يضيء.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "theme_color": "#334472",
+  "background_color": "#FFFFFF",
+  "icons": [
+    { "src": "/assets/img/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
