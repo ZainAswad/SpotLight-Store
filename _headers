@@ -1,29 +1,40 @@
 # إعدادات Cloudflare Pages — تُقابل ما في vercel.json
 # (Vercel يتجاهل هذا الملف تماماً، فوجوده آمن على الاستضافتين)
-# القاعدة الأعمّ أولاً، ثم الأخصّ لتتقدّم عليها
+#
+# القواعد غير متداخلة عمداً: لا مسار تطابقه أكثر من قاعدة واحدة تضبط
+# Cache-Control. فلا يتوقّف الناتج على ترجيح المنصّة عند التطابق —
+# وهو سلوك لا يصحّ الرهان عليه حين يكون الثمن أن ينشر صاحب المحل
+# تعديلاً فلا يراه الزبون.
 
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN
 
-/assets/*
-  Cache-Control: public, max-age=3600, must-revalidate
-
-/assets/img/products/*
-  Cache-Control: public, max-age=60, must-revalidate
-
-/assets/img/brands/*
-  Cache-Control: public, max-age=60, must-revalidate
-
+# الشيفرة والبيانات المنشورة — تُراجَع في كل طلب
 /assets/js/*
   Cache-Control: public, max-age=0, must-revalidate
 
 /assets/css/*
   Cache-Control: public, max-age=0, must-revalidate
 
+# الصور: مواد وعلامات ورسمات وواجهة — كلها يرفعها صاحب المحل
+/assets/img/*
+  Cache-Control: public, max-age=60, must-revalidate
+
+# الصفحات
 /
   Cache-Control: public, max-age=0, must-revalidate
 
+/admin
+  Cache-Control: public, max-age=0, must-revalidate
+
 /*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# عامل الخدمة والبيانات: مخزَّنةً طويلاً تبقى نسختها على الجهاز مدة لا نتحكّم بها
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/manifest*.json
   Cache-Control: public, max-age=0, must-revalidate
