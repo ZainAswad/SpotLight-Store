@@ -157,13 +157,19 @@ async function tryUnlock(pass){
   const want = (D || { SITE }).SITE?.admin?.hash || SITE.admin.hash;
   return (await sha256(pass)) === want;
 }
+/* علامة الدخول تحمل وقت فتح القفل. تسجيل الخروج يكتب وقته في localStorage،
+   فكل تبويب (أو تبويب منسوخ) فُتح قبله يُعدّ خارجاً — لا يبقى تبويب مفتوح خلفك. */
+const OK_KEY = 'wz_admin_ok', OUT_KEY = 'wz_admin_out';
+function loggedOutAt(){ try{ return +localStorage.getItem(OUT_KEY) || 0; }catch(e){ return 0; } }
+function isUnlocked(){ const t = +sessionStorage.getItem(OK_KEY) || 0; return t > 0 && t > loggedOutAt(); }
 function initLock(){
-  if(sessionStorage.getItem('wz_admin_ok') === '1'){ unlock(); return; }
+  if(isUnlocked()){ unlock(); return; }
+  sessionStorage.removeItem(OK_KEY);
   $('#lock').style.display = 'grid';
   $('#lockForm').addEventListener('submit', async e => {
     e.preventDefault();
     const v = $('#lockPass').value;
-    if(await tryUnlock(v)){ sessionStorage.setItem('wz_admin_ok', '1'); unlock(); }
+    if(await tryUnlock(v)){ sessionStorage.setItem(OK_KEY, String(Math.max(Date.now(), loggedOutAt() + 1))); unlock(); }
     else {
       $('#lockCard').classList.remove('shake'); void $('#lockCard').offsetWidth;
       $('#lockCard').classList.add('shake');
@@ -172,7 +178,41 @@ function initLock(){
   });
   $('#lockPass').focus();
 }
-function unlock(){ $('#lock').style.display = 'none'; $('#adm').style.display = 'block'; renderAll(); }
+function unlock(){
+  $('#lock').style.display = 'none'; $('#adm').style.display = 'block'; renderAll();
+  /* الطلبات تُجلب بعد فتح القفل فقط — لا بيانات زبائن في صفحة مقفلة */
+  if(FB.ready() && FB.signedIn()) loadOrders();
+}
+
+/* ============ تسجيل الخروج ============
+   يُنهي كل شيء معاً: دخول اللوحة، وجلسة إدارة الطلبات، وفي كل التبويبات المفتوحة.
+   مفتاح GitHub لا يُمسح هنا: هو توصيل للجهاز لا جلسة، ويُزال بزر «فصل هذا الجهاز». */
+let leaving = false;
+async function logout(){
+  if(dirty && !(await confirmBox('تسجيل الخروج',
+      'لديك تغييرات غير منشورة. تبقى محفوظة كمسودّة على هذا الجهاز وتجدها عند دخولك مرة أخرى.', 'تسجيل الخروج', false))) return;
+  leaving = true;
+  clearInterval(ordTimer);
+  FB.signOut(); ORDERS = [];
+  sessionStorage.removeItem(OK_KEY);
+  try{ localStorage.setItem(OUT_KEY, String(Date.now())); }catch(e){}
+  location.reload();
+}
+/* ما يحدث في تبويب آخر من نفس المتصفح */
+addEventListener('storage', e => {
+  if(e.key === OUT_KEY && e.newValue && sessionStorage.getItem(OK_KEY) && !isUnlocked()){
+    leaving = true; sessionStorage.removeItem(OK_KEY); location.reload(); return;
+  }
+  if(e.key === FB.TK){
+    if(!e.newValue){
+      if(FB.session){ FB.signOut(); ORDERS = []; renderOrders(); updateOrderBadge(); }
+    } else {
+      const was = FB.signedIn();
+      FB.loadSession();
+      if(!was && FB.signedIn() && isUnlocked()) loadOrders();
+    }
+  }
+});
 
 /* اسم المتجر في عنوان الصفحة وترويسة اللوحة — يتبع الإعدادات تلقائياً */
 function applyBranding(){
@@ -470,7 +510,7 @@ function productSheet(id){
       </div>
       <div class="f2">
         <div class="field"><input id="fp" placeholder=" " inputmode="numeric" value="${p.price || ''}"><label>السعر بالدينار (اختياري)</label></div>
-        <div class="field"><input id="fu" placeholder=" " inputmode="decimal" value="${p.usd || ''}"><label>السعر بالدولار (اختياري)</label></div>
+        <div class="field"><input id="fusd" placeholder=" " inputmode="decimal" value="${p.usd || ''}"><label>السعر بالدولار (اختياري)</label></div>
       </div>
       <div class="f2">
         <div class="field"><input id="fo" placeholder=" " inputmode="numeric" value="${p.old || ''}"><label>السعر قبل التخفيض (اختياري)</label></div>
@@ -774,7 +814,7 @@ function productSheet(id){
   $('#pSave').onclick = () => {
     const name = $('#fn').value.trim(), brand = $('#fb').value.trim();
     const price = parseInt(String($('#fp').value).replace(/\D/g, ''), 10) || 0;
-    const usd = +String($('#fu').value).replace(/[^\d.]/g, '') || 0;
+    const usd = +String($('#fusd').value).replace(/[^\d.]/g, '') || 0;
     const old = parseInt(String($('#fo').value).replace(/\D/g, ''), 10) || 0;
     cats = $$('#catpick input:checked').map(x => x.value);
     let ok = true;
@@ -788,7 +828,7 @@ function productSheet(id){
 
     const rec = { id:pid, name, brand, price, icon:iconSel, cats, desc:$('#fd').value.trim(), specs };
     if(usd) rec.usd = usd;
-    if(old > price) rec.old = old;
+    if(price && old > price) rec.old = old;     // التخفيض يُحسب من سعر الدينار فقط
     const badge = $('#fg').value; if(badge) rec.badge = badge;
     const unit = $('#fu').value.trim(); if(unit && unit !== 'حبة') rec.unit = unit;
     /* كل صورة جديدة تأخذ مساراً ثابتاً: الأولى بالمعرّف، والبقية بلاحقة رقم.
@@ -1377,7 +1417,8 @@ function renderSettings(){
     S.firebase.apiKey    = $('#fbKey').value.trim();
     S.firebase.projectId = $('#fbProj').value.trim();
     S.firebase.adminEmail= $('#fbAdmin').value.trim();
-    saveDraft(); renderSettings(); renderStats(); renderOrders();
+    /* renderProducts: سعر الصرف يغيّر أسعار المواد الدولارية في الجدول فوراً */
+    saveDraft(); renderSettings(); renderStats(); renderProducts(); renderOrders();
     toast('حُفظت الإعدادات في المسودّة', 'ok');
   };
 }
@@ -1818,21 +1859,20 @@ function bind(){
         discardDraft();
       return;
     }
-    if(t.closest('#btnLock')){ sessionStorage.removeItem('wz_admin_ok'); location.reload(); }
+    if(t.closest('#btnLock')) return logout();
   });
 
   document.addEventListener('keydown', e => {
     if(e.key === 'Escape') closeSheet();
     if(e.key === 'Enter'){ const r = e.target.closest?.('[data-row]'); if(r) productSheet(r.dataset.row); }
   });
-  addEventListener('beforeunload', e => { if(dirty){ e.preventDefault(); e.returnValue = ''; } });
+  addEventListener('beforeunload', e => { if(dirty && !leaving){ e.preventDefault(); e.returnValue = ''; } });
 }
 
 function boot(){
   loadState();
   applyBranding();
   FB.loadSession();
-  if(FB.ready() && FB.signedIn()) loadOrders();
   bind();
   initLock();
 }
@@ -2061,7 +2101,7 @@ function renderOrders(){
 
   $('#ordQ').oninput = e => { ordQuery = e.target.value; renderOrders(); };
   $('#ordRefresh').onclick = () => loadOrders(true);
-  $('#fbLogout').onclick = () => { FB.signOut(); ORDERS = []; renderOrders(); toast('خرجت من إدارة الطلبات', 'ok'); };
+  $('#fbLogout').onclick = () => { FB.signOut(); ORDERS = []; renderOrders(); updateOrderBadge(); toast('خرجت من إدارة الطلبات', 'ok'); };
 }
 
 function orderCard(o){
@@ -2125,10 +2165,14 @@ async function doFbLogin(){
 async function loadOrders(loud){
   if(!FB.ready() || !FB.signedIn()) { renderOrders(); return; }
   try{
-    ORDERS = await FB.listOrders();
+    const list = await FB.listOrders();
+    /* خرج المستخدم أثناء الجلب — لا نعرض ما وصل بعده */
+    if(!FB.signedIn()){ ORDERS = []; renderOrders(); updateOrderBadge(); return; }
+    ORDERS = list;
     renderOrders(); updateOrderBadge();
     if(loud) toast(`تم جلب ${ORDERS.length} طلب`, 'ok');
   }catch(e){
+    if(!FB.signedIn()){ ORDERS = []; renderOrders(); updateOrderBadge(); return; }
     if(/الجلسة/.test(e.message)){ FB.signOut(); renderOrders(); toast('انتهت الجلسة — سجّل الدخول', 'err'); return; }
     if(loud) toast(e.message, 'err');
     const box = $('#ordBody');

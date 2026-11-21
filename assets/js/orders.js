@@ -79,7 +79,9 @@ const FB = {
     return this.session;
   },
   saveSession(s){ this.session = s; try{ localStorage.setItem(this.TK, JSON.stringify(s)); }catch(e){} },
-  signOut(){ this.session = null; try{ localStorage.removeItem(this.TK); }catch(e){} },
+  /* gen يزيد مع كل خروج، فتجديدٌ بدأ قبل الخروج لا يُعيد الجلسة حين يكتمل */
+  gen: 0,
+  signOut(){ this.session = null; this.gen++; try{ localStorage.removeItem(this.TK); }catch(e){} },
   signedIn(){ return !!(this.session && this.session.refreshToken); },
 
   async signIn(email, password){
@@ -97,12 +99,19 @@ const FB = {
     if(!this.session) this.loadSession();
     if(!this.session) throw new Error('لم تسجّل الدخول بعد.');
     if(this.session.idToken && Date.now() < (this.session.exp || 0)) return this.session.idToken;
+    const gen = this.gen;
     const body = new URLSearchParams({ grant_type:'refresh_token', refresh_token:this.session.refreshToken });
     const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${this.cfg().apiKey}`, {
       method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body
     });
+    if(gen !== this.gen || !this.session) throw new Error('لم تسجّل الدخول بعد.');
     if(!r.ok){ this.signOut(); await FB.fail(r, 'انتهت الجلسة'); }
     const j = await r.json();
+    if(gen !== this.gen || !this.session) throw new Error('لم تسجّل الدخول بعد.');
+    /* خرج المستخدم من تبويب آخر: المفتاح لم يعد في المتصفح فلا نكتبه من جديد */
+    let stored = 'x';
+    try{ stored = localStorage.getItem(this.TK); }catch(e){}
+    if(!stored){ this.signOut(); throw new Error('لم تسجّل الدخول بعد.'); }
     this.saveSession({ ...this.session, idToken:j.id_token, refreshToken:j.refresh_token,
                        exp: Date.now() + (Number(j.expires_in || 3600) - 60) * 1000 });
     return this.session.idToken;

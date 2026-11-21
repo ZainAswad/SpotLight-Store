@@ -95,7 +95,9 @@ const store = {
   orders: [],
 
   load(){
-    this.cart   = read(KEY.cart, []).filter(l => l && byId(l.id));
+    /* سطر صارت مادته «السعر عند الطلب» بعد إعادة التسعير يُزال، وإلا بيعت بصفر */
+    this.cart   = read(KEY.cart, []).filter(l => l && byId(l.id)
+      && !askPrice(byId(l.id), l.opts && Object.keys(l.opts).length ? l.opts : defaultOpts(byId(l.id))));
     this.fav    = read(KEY.fav, []).filter(id => byId(id));
     this.orders = read(KEY.orders, []);
   },
@@ -108,8 +110,19 @@ const store = {
   keyOf(l){ return lineKey(l.id, l.opts); },
   add(id, q = 1, opts){
     const p = byId(id); if(!p) return;
+    /* نُبقي من الخيارات ما يخصّ هذه المادة فقط، وما لم يُختر يأخذ القيمة الأولى —
+       وهي نفسها التي تعرض البطاقة سعرها، فلا يختلف سعر السلة عمّا رآه الزبون */
+    const def = defaultOpts(p);
+    if(def){
+      const picked = {};
+      Object.keys(def).forEach(k => {
+        const o = optList(p).find(x => x.id === k);
+        picked[k] = opts && o && optValue(o, opts[k]) ? opts[k] : def[k];
+      });
+      opts = picked;
+    } else opts = null;
     /* حارس أخير: ما لا يمكن تسعيره بالدينار لا يدخل السلة بصفر */
-    if(askPrice(p, opts && Object.keys(opts).length ? opts : defaultOpts(p))){
+    if(askPrice(p, opts || def)){
       toast('هذه المادة سعرها عند الطلب — استفسر عبر واتساب'); return;
     }
     const key = lineKey(id, opts);
@@ -143,7 +156,7 @@ const store = {
   },
   get subtotal(){ return this.lines.reduce((s, l) => s + l.total, 0); },
   get savings(){
-    return this.lines.reduce((s, l) => s + (l.old ? (l.old - l.price) * l.q : 0), 0);
+    return this.lines.reduce((s, l) => s + (l.old > l.price ? (l.old - l.price) * l.q : 0), 0);
   },
   deliveryFee(method, gov){
     const o = SITE.orders;

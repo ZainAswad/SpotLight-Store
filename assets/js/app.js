@@ -171,7 +171,11 @@ function subLabel(p){
   const s = subInfo(p.cats[0]);
   return s ? s.name : '';
 }
-function discount(p){ return p.old ? Math.round((1 - p.price / p.old) * 100) : 0; }
+/* نسبة الخصم — من سعر الدينار فقط؛ مادة بالدولار أو بلا سعر لا خصم لها */
+function discount(p){
+  const pr = num(p.price), old = num(p.old);
+  return pr && old > pr ? Math.round((1 - pr / old) * 100) : 0;
+}
 
 /* ---------- بطاقة المنتج ---------- */
 function card(p){
@@ -196,7 +200,7 @@ function card(p){
       ${colorDots(p)}
       <div class="price-row">
         <span class="price">${priceView(priceInfo(p, defaultOpts(p)))}</span>
-        ${p.old && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span>` : ''}
+        ${off && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span>` : ''}
       </div>
       ${askPrice(p, defaultOpts(p))
         ? `<a class="btn btn-sm btn-tonal card-add wa" target="_blank" rel="noopener"
@@ -429,7 +433,7 @@ function viewProduct(id){
         <h3>${esc(p.name)}</h3>
         <div class="price-row">
           <span class="price" id="pPrice" style="font-size:26px">${priceView(priceInfo(p, defaultOpts(p)))}</span>
-          ${p.old && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span><span class="off">وفّر ${off}%</span>` : ''}
+          ${off && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span><span class="off">وفّر ${off}%</span>` : ''}
           <span class="card-cat">/ ${esc(p.unit || 'حبة')}</span>
         </div>
         ${optsHTML(p)}
@@ -855,7 +859,7 @@ function openQuick(id){
       <span class="card-brand">${esc(p.brand)} · ${esc(p.id)}</span>
       <h3>${esc(p.name)}</h3>
       <div class="price-row"><span class="price" style="font-size:24px">${priceView(priceInfo(p, defaultOpts(p)))}</span>
-        ${p.old && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span><span class="off">-${off}%</span>` : ''}
+        ${off && !askPrice(p, defaultOpts(p)) ? `<span class="old">${money(p.old)}</span><span class="off">-${off}%</span>` : ''}
         <span class="card-cat">/ ${esc(p.unit || 'حبة')}</span></div>
       <p class="desc">${esc(p.desc)}</p>
       <ul class="specs">${specsOf(p, defaultOpts(p)).map(x => `<li>${icon('check')}<span>${esc(x)}</span></li>`).join('')}</ul>
@@ -974,7 +978,7 @@ function suggest(q){
   box.innerHTML = items.map(p => `<a class="sg" href="#/p/${p.id}" data-sg>
       <span class="thumb">${media(p)}</span>
       <span><b>${esc(p.name)}</b><small>${esc(p.brand)} · ${esc(subLabel(p))}</small></span>
-      <span class="pr">${money(p.price)} ${SITE.currency}</span></a>`).join('')
+      <span class="pr">${priceView(priceInfo(p, defaultOpts(p)))}</span></a>`).join('')
     + `<a class="sg" href="#/search/${encodeURIComponent(q)}" data-sg style="justify-content:center;font-weight:800;color:var(--brand-700)">
         عرض كل النتائج (${searchProducts(q).length})</a>`;
   box.classList.add('open');
@@ -1051,7 +1055,10 @@ function bindGlobal(){
     if(add){
       const useQty = add.hasAttribute('data-useqty');
       const q = useQty ? (parseInt($('#pq')?.textContent, 10) || 1) : 1;
-      store.add(add.dataset.add, q, readOpts());
+      /* الخيارات تُقرأ من صفحة هذه المادة نفسها — لا من مادة أخرى معروضة في الصفحة */
+      const box = add.closest('.qv');
+      const opts = box && box.querySelector(`[data-opts="${CSS.escape(add.dataset.add)}"]`) ? readOpts(box) : null;
+      store.add(add.dataset.add, q, opts);
       return;
     }
     /* المفضلة */
